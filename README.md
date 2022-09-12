@@ -35,7 +35,7 @@ graph.print_graph() # The graph can be visualized
 
 index = graph.create_kmer_index(3) # Takes k for k-mer length as parameter
 
-print(index[b'ACT']) # Index dictionary used bytestrings as keys
+print(index[b'ACT']) # Index dictionary uses bytestrings as keys
 ```
 
 ## Authors
