@@ -2730,7 +2730,7 @@ static unsigned int __pyx_f_5Graph_5Graph_get_kmers(struct __pyx_obj_5Graph_Grap
  *                 else:
  *                     kmer_len += 1             # <<<<<<<<<<<<<<
  *             elif kmer_len + 1 == k * 2:
- *                 for j in range(k * 2 - 2):
+ *                 for j in range(k * 2 - 1):
  */
       /*else*/ {
         __pyx_v_kmer_len = (__pyx_v_kmer_len + 1);
@@ -2750,7 +2750,7 @@ static unsigned int __pyx_f_5Graph_5Graph_get_kmers(struct __pyx_obj_5Graph_Grap
  *                 else:
  *                     kmer_len += 1
  *             elif kmer_len + 1 == k * 2:             # <<<<<<<<<<<<<<
- *                 for j in range(k * 2 - 2):
+ *                 for j in range(k * 2 - 1):
  *                     kmer[j] = kmer[j + 1]
  */
     __pyx_t_6 = (((__pyx_v_kmer_len + 1) == (__pyx_v_k * 2)) != 0);
@@ -2759,18 +2759,18 @@ static unsigned int __pyx_f_5Graph_5Graph_get_kmers(struct __pyx_obj_5Graph_Grap
       /* "Graph.pyx":92
  *                     kmer_len += 1
  *             elif kmer_len + 1 == k * 2:
- *                 for j in range(k * 2 - 2):             # <<<<<<<<<<<<<<
+ *                 for j in range(k * 2 - 1):             # <<<<<<<<<<<<<<
  *                     kmer[j] = kmer[j + 1]
  *             else:
  */
-      __pyx_t_9 = ((__pyx_v_k * 2) - 2);
+      __pyx_t_9 = ((__pyx_v_k * 2) - 1);
       __pyx_t_10 = __pyx_t_9;
       for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
         __pyx_v_j = __pyx_t_11;
 
         /* "Graph.pyx":93
  *             elif kmer_len + 1 == k * 2:
- *                 for j in range(k * 2 - 2):
+ *                 for j in range(k * 2 - 1):
  *                     kmer[j] = kmer[j + 1]             # <<<<<<<<<<<<<<
  *             else:
  *                 kmer_len += 1
@@ -2782,7 +2782,7 @@ static unsigned int __pyx_f_5Graph_5Graph_get_kmers(struct __pyx_obj_5Graph_Grap
  *                 else:
  *                     kmer_len += 1
  *             elif kmer_len + 1 == k * 2:             # <<<<<<<<<<<<<<
- *                 for j in range(k * 2 - 2):
+ *                 for j in range(k * 2 - 1):
  *                     kmer[j] = kmer[j + 1]
  */
       goto __pyx_L8;

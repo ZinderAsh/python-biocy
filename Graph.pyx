@@ -88,8 +88,8 @@ cdef class Graph:
                     return kmer_len + 1
                 else:
                     kmer_len += 1
-            elif kmer_len + 1 == k * 2: 
-                for j in range(k * 2 - 2):
+            elif kmer_len + 1 == k * 2:
+                for j in range(k * 2 - 1):
                     kmer[j] = kmer[j + 1]
             else:
                 kmer_len += 1
