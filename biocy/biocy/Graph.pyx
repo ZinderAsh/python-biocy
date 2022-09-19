@@ -102,7 +102,7 @@ cdef class Graph:
             return kmer_len
         for i in range(0 if kmer_len >= k else k - 1 - kmer_len, k):
             if kmer_len >= k - i:
-                if i == k - 1:
+                if i + 1 == k:
                     kmer[0] = 0
                     kmer_len = 0
                 elif i > 0:

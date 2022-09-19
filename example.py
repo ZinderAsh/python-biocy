@@ -1,8 +1,8 @@
-from Graph import Graph
+import biocy as bc
 
 nodes = ["AGTA", "G", "CT", "A", "CTA", "G", "A", "T"]
 edges = [[1, 2], [3], [3], [4], [5, 6], [7], [7], []]
-graph = Graph.from_sequence_edge_lists(nodes, edges)
+graph = bc.Graph.from_sequence_edge_lists(nodes, edges)
 graph.print_graph()
 print("Finding 3-mers")
 index = graph.create_kmer_index(3)

@@ -1,4 +1,4 @@
-from Graph import Graph
+import biocy as bc
 import pytest
 
 @pytest.mark.parametrize("nodes,edges,k,expected", [
@@ -17,7 +17,7 @@ import pytest
             (["AGTA", "G", "CT", "A", "CTA", "G", "A", "T"], [[1, 2], [3], [3], [4], [5, 6], [7], [7], []], 5,
              {b'AGTAG': [0], b'AGTAC': [0], b'GTAGA': [0], b'GTACT': [0], b'TAGAC': [0], b'TACTA': [0, 2], b'AGACT': [0], b'ACTAC': [0], b'GACTA': [1], b'ACTAG': [3], b'ACTAA': [3], b'CTAGT': [4], b'CTAAT': [4], b'CTACT': [2]})])
 def test_kmer_index(nodes, edges, k, expected):
-    graph = Graph.from_sequence_edge_lists(nodes, edges)
+    graph = bc.Graph.from_sequence_edge_lists(nodes, edges)
     index = graph.create_kmer_index(k)
     assert len(index) == len(expected)
     for i in index:

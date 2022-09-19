@@ -1,4 +1,7 @@
-# Genotyping Master's Project
+=====
+BioCy
+=====
+
 Master's project about discovering and indexing k-mers from genome graphs.
 
 ## Description
@@ -38,10 +41,10 @@ index = graph.create_kmer_index(3) # Takes k for k-mer length as parameter
 print(index[b'ACT']) # Index dictionary uses bytestrings as keys
 ```
 
-## Authors
+Credits
+-------
 
-All code for this project is written by myself.
+This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypackage`_ project template.
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE.md file for detailsi
+.. _Cookiecutter: https://github.com/audreyr/cookiecutter
+.. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
