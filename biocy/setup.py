@@ -2,7 +2,7 @@
 
 """The setup script."""
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 from Cython.Build import cythonize
 
 with open('README.rst') as readme_file:
@@ -15,7 +15,14 @@ requirements = ['cython', ]
 
 test_requirements = ['pytest>=3', ]
 
+extensions = [
+    Extension("Graph", ["biocy/Graph.pyx"]),
+]
+
+extensions = cythonize(extensions, annotate=True)
+
 setup(
+    ext_modules=extensions,
     author="Sindre Ask Vestaberg",
     author_email='sindre.ask.vestaberg@gmail.com',
     python_requires='>=3.6',
