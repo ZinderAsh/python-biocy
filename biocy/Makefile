@@ -64,6 +64,9 @@ coverage: ## check code coverage quickly with the default Python
 	coverage html
 	$(BROWSER) htmlcov/index.html
 
+profile:
+	python -m memory_profiler profiling/main.py
+
 docs: ## generate Sphinx HTML documentation, including API docs
 	rm -f docs/biocy.rst
 	rm -f docs/modules.rst
