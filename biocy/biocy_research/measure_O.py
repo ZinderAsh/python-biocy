@@ -45,4 +45,17 @@ f = open("measures.csv", "w")
 f.write("N,E,k,calls\n")
 measure_n_e(f)
 measure_k(f)
+#f.close()
+
+def measure_n_e_2(f=None):
+    k = 3
+    for w, h in [(64, 1), (32, 2), (16, 4), (8, 8), (4, 16), (2, 32)]:
+        graph = create_matrix_graph(w, h, seq_len=1)
+        graph.create_kmer_index(k)
+        print(f'{w}x{h}: N = {len(graph.nodes)}, E = {graph.total_edges}, k = {k}')
+        print(f'  calls: {graph.get_kmers_initial_calls + graph.get_kmers_recursive_calls}')
+        total_calls = graph.get_kmers_initial_calls + graph.get_kmers_recursive_calls
+        if f: f.write(f'{len(graph.nodes)},{graph.total_edges},{k},{total_calls}\n')
+
+measure_n_e_2(f)
 f.close()
