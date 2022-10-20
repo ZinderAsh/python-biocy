@@ -1,5 +1,6 @@
 from obgraph import Graph as OBGraph
 from graph_kmer_index.kmer_finder import DenseKmerFinder
+from graph_kmer_index import kmer_hash_to_sequence
 from Graph import Graph
 import pytest
 
@@ -8,9 +9,9 @@ import pytest
             (["ACTGACTGACTG", "ACTGCA"], [[1], []], 4),
             (["ACTAG", "GAC", "TGA", "CTGAGT"], [[1], [2], [3], []], 3),
             (["ACTAG", "G", "A", "GTACTCA"], [[1, 2], [3], [3], []], 3),
-            (["AGTAGA", "G", "CT", "A", "CTA", "G", "A", "TCATA"], [[1, 2], [3], [3], [4], [5, 6], [7], [7], []], 3),
-            (["AGTAGA", "G", "CT", "A", "CTA", "G", "A", "TCATA"], [[1, 2], [3], [3], [4], [5, 6], [7], [7], []], 4),
-            (["AGTAGA", "G", "CT", "A", "CTA", "G", "A", "TCATA"], [[1, 2], [3], [3], [4], [5, 6], [7], [7], []], 5)])
+            (["AGTAGA", "G", "CT", "ACTA", "G", "A", "TCATA"], [[1, 2], [3], [3], [4, 5], [6], [6], []], 3),
+            (["AGTAGA", "G", "CT", "ACTA", "G", "A", "TCATA"], [[1, 2], [3], [3], [4, 5], [6], [6], []], 4),
+            (["AGTAGA", "G", "CT", "ACTA", "G", "A", "TCATA"], [[1, 2], [3], [3], [4, 5], [6], [6], []], 5)])
 def test_kmer_index(nodes, edges, k):
     graph = Graph.from_sequence_edge_lists(nodes, edges)
     res_kmers, res_nodes = graph.create_kmer_index(k)
@@ -31,17 +32,25 @@ def test_kmer_index(nodes, edges, k):
         edges=ob_edges,
         linear_ref_nodes=ob_linear_ref_nodes
     )
-    finder = DenseKmerFinder(obgraph, k=k)
+    finder = DenseKmerFinder(obgraph, k=k, max_variant_nodes=100000)
     finder.find()
     ob_kmers, ob_nodes = finder.get_found_kmers_and_nodes()
     assert len(res_kmers) == len(ob_kmers)
     assert len(res_nodes) == len(ob_nodes)
     assert len(res_kmers) == len(res_nodes)
-    res_kmers = sorted(res_kmers)
-    res_nodes = sorted(res_nodes)
-    ob_kmers = sorted(ob_kmers)
-    ob_nodes = sorted(ob_nodes)
+    res_counts = {}
     for i in range(len(res_kmers)):
-        assert res_kmers[i] == ob_kmers[i]
-        assert res_nodes[i] + 1 == ob_nodes[i]
-    
+        if res_kmers[i] not in res_counts:
+            res_counts[res_kmers[i]] = 0
+        res_counts[res_kmers[i]] += 1
+    ob_counts = {}
+    for i in range(len(ob_kmers)):
+        if ob_kmers[i] not in ob_counts:
+            ob_counts[ob_kmers[i]] = 0
+        ob_counts[ob_kmers[i]] += 1
+    for i in res_counts:
+        print(kmer_hash_to_sequence(i, k),
+              res_counts[i] if i in res_counts else 0,
+              ob_counts[i] if i in ob_counts else 0)
+    for i in res_counts:
+        assert res_counts[i] == ob_counts[i]
