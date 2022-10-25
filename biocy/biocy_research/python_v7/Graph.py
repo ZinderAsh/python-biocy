@@ -4,16 +4,14 @@ from graph_kmer_index import kmer_hash_to_sequence
 class Node:
     def __init__(self, sequence, edges):
         self.sequence_len = len(sequence)
-        self.num_segments = 0 if self.sequence_len == 0 else 1 + self.sequence_len // 31
-        self.sequence = np.empty((self.num_segments,), dtype=np.ulonglong)
-        for i in range(self.num_segments):
+        self.num_subsequences = 0 if self.sequence_len == 0 else 1 + self.sequence_len // 31
+        self.sequence = np.empty((self.num_subsequences,), dtype=np.ulonglong)
+        for i in range(self.num_subsequences):
             segment_end = min((i + 1) * 31, self.sequence_len)
             self.sequence[i] = hash_max_kmer(sequence.encode('ASCII')[(i * 31):segment_end], segment_end - (i * 31))
-        #print(kmer_hash_to_sequence(np.right_shift(self.sequence[0], np.uint64(64 - self.sequence_len * 2)), self.sequence_len))
         self.edges = np.array(edges, dtype=np.int32)
         self.reference = False
 
-# This one is specifically for 0 < k < 16. There will be a separate class for 15 < k < 32 because it needs two buffer int64 variables.
 class GraphKmerFinder:
 
     def __init__(self, graph, k, max_variant_nodes):
@@ -23,19 +21,20 @@ class GraphKmerFinder:
         self.kmers = None
         self.nodes = None
         self.kmer_mask = np.uint64((1 << (k * 2)) - 1)
-        self.kmer_buffer = 0
+        self.shift = np.uint64((32 - k) * 2)
+        self.kmer_buffer = 0 # Main kmer buffer
+        self.kmer_buffer_ext = 0 # Extended kmer buffer
         self.path_buffer = np.empty(k * 4, dtype=np.uint32)
 
     def find(self):
         self.kmers = []
         self.nodes = []
         for node_id in range(len(self.graph.nodes)):
-            print(node_id)
             if self.graph.nodes[node_id].sequence_len != 0:
                 self.get_kmers(self.k, node_id)
         return self.kmers, self.nodes
 
-    def get_kmers_recursive(self, k, node_id, variant_cnt, path_len, start_kmer_len, kmer_len):
+    def get_kmers_recursive(self, k, node_id, variant_cnt, path_len, kmer_len, kmer_ext_len):
         # Update lenghts and buffers
         self.path_buffer[path_len] = node_id
         path_len += 1
@@ -47,32 +46,40 @@ class GraphKmerFinder:
             if variant_cnt > self.max_variant_nodes:
                 return
 
-        if node.num_segments == 1:
-            # Clear and replace the end of the buffer with the node currently being visited.
-            self.kmer_buffer = np.bitwise_and(self.kmer_buffer, np.left_shift(np.uint64(-1), np.uint64(64 - (kmer_len * 2))))
-            self.kmer_buffer = np.bitwise_or(self.kmer_buffer, np.right_shift(node.sequence[0], np.uint64(kmer_len * 2)))
-            new_kmer_len = min(kmer_len + node.sequence_len, start_kmer_len + k - 1)
-            # Quickly make sure kmer_len catches up to avoid needless iterations in the following loop
-            if kmer_len < k - 1:
-                kmer_len = min(k - 1, new_kmer_len)
-            # Iterate through and index the kmers
-            while kmer_len < new_kmer_len:
-                kmer_len += 1
-                if kmer_len >= k:
-                    # Index the kmer for all nodes in the path
+        if node.num_subsequences != 0:
+            if kmer_ext_len == 0:
+                # First recursion, replace entire buffer.
+                self.kmer_buffer_ext = node.sequence[0]
+            else:
+                # Clear and replace the end of the buffer with the node currently being visited.
+                self.kmer_buffer_ext = np.bitwise_and(self.kmer_buffer_ext, np.left_shift(np.uint64(-1), np.uint64(64 - (kmer_ext_len * 2))))
+                self.kmer_buffer_ext = np.bitwise_or(self.kmer_buffer_ext, np.right_shift(node.sequence[0], np.uint64(kmer_ext_len * 2)))
+            sequence_len = min(k - 1, kmer_ext_len + node.sequence_len)
+            # Check if there are enough bases to index new kmers
+            if kmer_len + sequence_len >= k:
+                if kmer_ext_len < k - kmer_len - 1:
+                    kmer_ext_len = k - kmer_len - 1
+                buffer_shift = (kmer_len - k + kmer_ext_len) * 2
+                while kmer_ext_len < sequence_len:
+                    kmer_ext_len += 1
+                    buffer_shift += 2
+                    real_shift = max(0, buffer_shift)
+                    # TODO: Try to make this shifting cleaner with fewer operations
+                    kmer_hash = np.bitwise_or(np.left_shift(self.kmer_buffer, np.uint64(real_shift)), np.right_shift(self.kmer_buffer_ext, np.uint64(kmer_len * 2 - real_shift)))
+                    kmer_hash = np.right_shift(kmer_hash, np.uint64(64 - k * 2 + max(0, -buffer_shift)))
                     for i in range(path_len):
                         self.nodes.append(self.path_buffer[i])
-                        self.kmers.append(np.bitwise_and(np.right_shift(self.kmer_buffer, np.uint64(64 - (kmer_len * 2))), self.kmer_mask))
-        else:
-            pass
-        
-        # Stop if the node that first called the recursive function no longer has any of their bases included in results.
-        if kmer_len >= start_kmer_len + k - 1:
-            return
+                        self.kmers.append(kmer_hash)
+            else:
+                kmer_ext_len = sequence_len
+                
+            # Stop if the node that first called the recursive function no longer has any of their bases included in results.
+            if kmer_ext_len >= k - 1:
+                return
 
         # Continue recursion
         for edge in node.edges:
-            self.get_kmers_recursive(k, edge, variant_cnt, path_len, start_kmer_len, kmer_len)
+            self.get_kmers_recursive(k, edge, variant_cnt, path_len, kmer_len, kmer_ext_len)
 
     def get_kmers(self, k, node_id):
         # Update lengths and buffers
@@ -86,16 +93,34 @@ class GraphKmerFinder:
 
         # Store the node's sequence in the buffer.
         self.kmer_buffer = node.sequence[0]
-        kmer_len = min(k, node.sequence_len)
+        sequence_len = node.sequence_len
+        kmer_len = min(k, sequence_len)
+        subsequence_idx = 1
+        subsequence_pos = np.uint64(0)
         # If at least k bases are stored, iterate through and index the kmers.
         if kmer_len == k:
             kmer_len -= 1
-            while kmer_len < node.sequence_len:
+            while kmer_len < sequence_len:
                 kmer_len += 1
                 self.nodes.append(node_id)
                 self.kmers.append(np.bitwise_and(np.right_shift(self.kmer_buffer, np.uint64(64 - (kmer_len * 2))), self.kmer_mask))
-        if node.num_segments > 1:
-            pass # TODO: Handle nodes with more than 31 bases.
+                # Check if the buffer is full, and if so, shift values along as much as k allows
+                if kmer_len == 31 and subsequence_idx < node.num_subsequences:
+                    self.kmer_buffer = np.left_shift(self.kmer_buffer, self.shift)
+                    subsequence = np.left_shift(node.sequence[subsequence_idx], subsequence_pos)
+                    self.kmer_buffer = np.bitwise_or(self.kmer_buffer, np.right_shift(subsequence, np.uint64(62 - self.shift)))
+                    subsequence_pos = np.uint64(subsequence_pos + self.shift)
+                    if subsequence_pos > 62:
+                        subsequence_idx += 1
+                        if subsequence_idx < node.num_subsequences:
+                            subsequence_pos = np.uint64(subsequence_pos - 62)
+                            self.kmer_buffer = np.bitwise_or(self.kmer_buffer, np.right_shift(node.sequence[subsequence_idx], np.uint64(62 - subsequence_pos)))
+                    elif subsequence_pos == 62:
+                        subsequence_idx += 1
+                        subsequence_pos = np.uint64(0)
+                    kmer_len = k - 1
+                    sequence_len -= 32 - k
+
         
         # Keep only the last k - 1 bases in the buffer.
         if kmer_len >= k:
@@ -105,7 +130,12 @@ class GraphKmerFinder:
 
         # Recurse to all edges, remembering the kmer_len recursion started at.
         for edge in node.edges:
-            self.get_kmers_recursive(k, edge, variant_cnt, 1, kmer_len, kmer_len)
+            self.get_kmers_recursive(k, edge, variant_cnt, 1, kmer_len, 0)
+
+    def print_buffers(self, msg=None):
+        if msg:
+            print(msg)
+        print(kmer_hash_to_sequence(self.kmer_buffer, 32), kmer_hash_to_sequence(self.kmer_buffer_ext, 32))
 
 class Graph:
 
