@@ -52,21 +52,26 @@ class GraphKmerFinder:
                 self.kmer_buffer_ext = node.sequence[0]
             else:
                 # Clear and replace the end of the buffer with the node currently being visited.
-                self.kmer_buffer_ext = np.bitwise_and(self.kmer_buffer_ext, np.left_shift(np.uint64(-1), np.uint64(64 - (kmer_ext_len * 2))))
-                self.kmer_buffer_ext = np.bitwise_or(self.kmer_buffer_ext, np.right_shift(node.sequence[0], np.uint64(kmer_ext_len * 2)))
+                self.kmer_buffer_ext = np.bitwise_and(self.kmer_buffer_ext,
+                                                      np.left_shift(np.uint64(-1),
+                                                                    np.uint64(64 - (kmer_ext_len * 2))))
+                self.kmer_buffer_ext = np.bitwise_or(self.kmer_buffer_ext,
+                                                     np.right_shift(node.sequence[0],
+                                                                    np.uint64(kmer_ext_len * 2)))
             sequence_len = min(k - 1, kmer_ext_len + node.sequence_len)
             # Check if there are enough bases to index new kmers
             if kmer_len + sequence_len >= k:
                 if kmer_ext_len < k - kmer_len - 1:
                     kmer_ext_len = k - kmer_len - 1
-                buffer_shift = (kmer_len - k + kmer_ext_len) * 2
                 while kmer_ext_len < sequence_len:
                     kmer_ext_len += 1
-                    buffer_shift += 2
-                    real_shift = max(0, buffer_shift)
-                    # TODO: Try to make this shifting cleaner with fewer operations
-                    kmer_hash = np.bitwise_or(np.left_shift(self.kmer_buffer, np.uint64(real_shift)), np.right_shift(self.kmer_buffer_ext, np.uint64(kmer_len * 2 - real_shift)))
-                    kmer_hash = np.right_shift(kmer_hash, np.uint64(64 - k * 2 + max(0, -buffer_shift)))
+                    # Combine the main buffer and extended buffer to form the final kmer.
+                    kmer_hash = np.bitwise_or(np.left_shift(self.kmer_buffer,
+                                                            np.uint64(kmer_ext_len * 2)),
+                                              np.right_shift(self.kmer_buffer_ext,
+                                                             np.uint64(64 - kmer_ext_len * 2)))
+                    kmer_hash = np.bitwise_and(kmer_hash, self.kmer_mask)
+                    # Add the kmer to the index for every node in the path.
                     for i in range(path_len):
                         self.nodes.append(self.path_buffer[i])
                         self.kmers.append(kmer_hash)
@@ -103,18 +108,24 @@ class GraphKmerFinder:
             while kmer_len < sequence_len:
                 kmer_len += 1
                 self.nodes.append(node_id)
-                self.kmers.append(np.bitwise_and(np.right_shift(self.kmer_buffer, np.uint64(64 - (kmer_len * 2))), self.kmer_mask))
+                self.kmers.append(np.bitwise_and(np.right_shift(self.kmer_buffer,
+                                                                np.uint64(64 - (kmer_len * 2))),
+                                                 self.kmer_mask))
                 # Check if the buffer is full, and if so, shift values along as much as k allows
                 if kmer_len == 31 and subsequence_idx < node.num_subsequences:
                     self.kmer_buffer = np.left_shift(self.kmer_buffer, self.shift)
                     subsequence = np.left_shift(node.sequence[subsequence_idx], subsequence_pos)
-                    self.kmer_buffer = np.bitwise_or(self.kmer_buffer, np.right_shift(subsequence, np.uint64(62 - self.shift)))
+                    self.kmer_buffer = np.bitwise_or(self.kmer_buffer,
+                                                     np.right_shift(subsequence,
+                                                                    np.uint64(62 - self.shift)))
                     subsequence_pos = np.uint64(subsequence_pos + self.shift)
                     if subsequence_pos > 62:
                         subsequence_idx += 1
                         if subsequence_idx < node.num_subsequences:
                             subsequence_pos = np.uint64(subsequence_pos - 62)
-                            self.kmer_buffer = np.bitwise_or(self.kmer_buffer, np.right_shift(node.sequence[subsequence_idx], np.uint64(62 - subsequence_pos)))
+                            self.kmer_buffer = np.bitwise_or(self.kmer_buffer,
+                                                             np.right_shift(node.sequence[subsequence_idx],
+                                                                            np.uint64(62 - subsequence_pos)))
                     elif subsequence_pos == 62:
                         subsequence_idx += 1
                         subsequence_pos = np.uint64(0)
@@ -122,11 +133,11 @@ class GraphKmerFinder:
                     sequence_len -= 32 - k
 
         
-        # Keep only the last k - 1 bases in the buffer.
-        if kmer_len >= k:
-            new_kmer_len = min(kmer_len, k - 1)
-            self.kmer_buffer = np.left_shift(self.kmer_buffer, np.uint64((kmer_len - new_kmer_len) * 2))
-            kmer_len = new_kmer_len
+        # Right-align the buffer for easier bit-wise operations with kmer_buffer_ext in recursion.
+        self.kmer_buffer = np.right_shift(self.kmer_buffer, 
+                                          np.uint64(64 - kmer_len * 2))
+        # Fake the kmer being max k - 1 as no more bases than that matter during recursion.
+        kmer_len = min(kmer_len, k - 1)
 
         # Recurse to all edges, remembering the kmer_len recursion started at.
         for edge in node.edges:
@@ -135,7 +146,8 @@ class GraphKmerFinder:
     def print_buffers(self, msg=None):
         if msg:
             print(msg)
-        print(kmer_hash_to_sequence(self.kmer_buffer, 32), kmer_hash_to_sequence(self.kmer_buffer_ext, 32))
+        print(kmer_hash_to_sequence(self.kmer_buffer, 32),
+              kmer_hash_to_sequence(self.kmer_buffer_ext, 32))
 
 class Graph:
 
