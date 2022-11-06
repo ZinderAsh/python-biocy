@@ -2,15 +2,33 @@ import numpy as np
 from graph_kmer_index import kmer_hash_to_sequence
 
 class Node:
-    def __init__(self, sequence, edges):
-        self.sequence_len = len(sequence)
-        self.num_subsequences = 0 if self.sequence_len == 0 else 1 + self.sequence_len // 31
-        self.sequence = np.empty((self.num_subsequences,), dtype=np.ulonglong)
-        for i in range(self.num_subsequences):
-            segment_end = min((i + 1) * 31, self.sequence_len)
-            self.sequence[i] = hash_max_kmer(sequence.encode('ASCII')[(i * 31):segment_end], segment_end - (i * 31))
-        self.edges = np.array(edges, dtype=np.int32)
+    def __init__(self):
         self.reference = False
+
+    @staticmethod
+    def from_sequence_edges(sequence, edges):
+        node = Node()
+        node.sequence_len = len(sequence)
+        node.num_subsequences = 0 if node.sequence_len == 0 else 1 + node.sequence_len // 31
+        node.sequence = np.empty((node.num_subsequences,), dtype=np.ulonglong)
+        for i in range(node.num_subsequences):
+            segment_end = min((i + 1) * 31, node.sequence_len)
+            node.sequence[i] = hash_max_kmer(sequence.encode('ASCII')[(i * 31):segment_end], segment_end - (i * 31))
+        node.edges = np.array(edges, dtype=np.int32)
+        return node
+
+    @staticmethod
+    def from_obgraph(node, sequence, edges):
+        node = Node()
+        node.sequence_len = sequence.shape[0]
+        node.num_subsequences = 0 if node.sequence_len == 0 else 1 + node.sequence_len // 31
+        node.sequence = np.empty((node.num_subsequences,), dtype=np.ulonglong)
+        for i in range(node.num_subsequences):
+            segment_end = min((i + 1) * 31, node.sequence_len)
+            node.sequence[i] = pack_max_kmer(sequence, i * 31, segment_end)
+        node.edges = np.array(edges, dtype=np.int32)
+        return node
+
 
 class GraphKmerFinder:
 
@@ -155,6 +173,18 @@ class Graph:
         self.nodes = []
 
     @staticmethod
+    def from_obgraph(obg):
+        graph = Graph()
+        for i in range(len(obg.nodes)):
+            node = Node.from_obgraph(obg.nodes[i], obg.sequences[i], obg.edges[i])
+            graph.nodes.append(node)
+        ref = obg.linear_ref_nodes()
+        for i in ref:
+            graph.nodes[i].reference = True
+
+        return graph
+
+    @staticmethod
     def from_sequence_edge_lists(sequences, edges, ref=None):
         """
         Args:
@@ -165,7 +195,7 @@ class Graph:
         """
         graph = Graph()
         for i in range(len(sequences)):
-            node = Node(sequences[i], edges[i])
+            node = Node.from_sequence_edges(sequences[i], edges[i])
             graph.nodes.append(node)
         if ref is not None:
             for i in ref:
@@ -192,3 +222,9 @@ def hash_max_kmer(arr, k):
     for i in range(k):
         hashed |= (arr[i] & 6) << (61 - i * 2)
     return hashed
+
+def pack_max_kmer(arr, start, end):
+    packed = 0
+    for i in range(start, end):
+        packed |= (arr[i] << (62 - (i - start) * 2))
+    return packed

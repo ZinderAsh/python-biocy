@@ -2,6 +2,7 @@ from obgraph import Graph as OBGraph
 from graph_kmer_index.kmer_finder import DenseKmerFinder
 from graph_kmer_index import kmer_hash_to_sequence
 from Graph import Graph, hash_kmer
+from os.path import exists
 import pytest
 
 def hash_all(arr):
@@ -11,9 +12,6 @@ def hash_all(arr):
     return [hash_kmer(i.encode('ASCII'), k) for i in arr]
 
 def compare_kmer_node_lists(kmers_a, nodes_a, kmers_b, nodes_b, k):
-    #assert len(kmers_a) == len(kmers_b)
-    #assert len(nodes_a) == len(nodes_b)
-    #assert len(kmers_a) == len(nodes_a)
     counts_a = {}
     for i in range(len(kmers_a)):
         if kmers_a[i] not in counts_a:
@@ -27,9 +25,13 @@ def compare_kmer_node_lists(kmers_a, nodes_a, kmers_b, nodes_b, k):
     all_keys = set(counts_a.keys())
     all_keys.update(counts_b.keys())
     for i in all_keys:
-        print(kmer_hash_to_sequence(i, k),
-              counts_a[i] if i in counts_a else 0,
-              counts_b[i] if i in counts_b else 0)
+        a = counts_a[i] if i in counts_a else 0
+        b = counts_b[i] if i in counts_b else 0
+        if a != b:
+            print(kmer_hash_to_sequence(i, k), a, b)
+    assert len(kmers_a) == len(kmers_b)
+    assert len(nodes_a) == len(nodes_b)
+    assert len(kmers_a) == len(nodes_a)
     for i in all_keys:
         assert counts_a[i] == counts_b[i]
 
@@ -135,4 +137,38 @@ def test_kmer_empty_nodes(nodes, edges, ref, k, max_var, expected_nodes, expecte
     graph = Graph.from_sequence_edge_lists(nodes, edges, ref=ref)
     res_kmers, res_nodes = graph.create_kmer_index(k, max_variant_nodes=max_var)
     compare_kmer_node_lists(res_kmers, res_nodes, expected_kmers, expected_nodes, k)
+
+@pytest.mark.parametrize("file,k,max_var", [
+        ("data/example_graph.npz", 4, 4),
+        ("data/example_graph.npz", 6, 6),
+        ("data/example_graph.npz", 8, 1000),
+        ("data/example_graph.npz", 12, 1000),
+        ("data/example_graph.npz", 16, 1000),
+        ("data/example_graph.npz", 24, 1000),
+    ])
+def test_obgraph(file, k, max_var):
+    obgraph = OBGraph.from_file(file)
+    graph = Graph.from_obgraph(obgraph)
+    res_kmers, res_nodes = graph.create_kmer_index(k, max_variant_nodes=max_var)
+    fname = f'data/kage_results_{k}mer_{max_var}var.txt'
+    ob_kmers, ob_nodes = [], []
+    if exists(fname):
+        f = open(fname, "r")
+        lines = f.readlines()
+        for l in lines:
+            seg = l.split(" ")
+            if len(seg) == 2:
+                ob_kmers.append(int(seg[0]))
+                ob_nodes.append(int(seg[1]))
+        f.close()
+    else:
+        finder = DenseKmerFinder(obgraph, k=k, max_variant_nodes=max_var)
+        finder.find()
+        ob_kmers, ob_nodes = finder.get_found_kmers_and_nodes()
+        f = open(fname, "w")
+        for i in range(len(ob_kmers)):
+            f.write(f'{str(ob_kmers[i])} {str(ob_nodes[i])}\n')
+        f.close()
+    compare_kmer_node_lists(res_kmers, res_nodes, ob_kmers, ob_nodes, k)
+
 
