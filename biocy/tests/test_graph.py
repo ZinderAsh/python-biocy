@@ -149,12 +149,13 @@ def test_kmer_empty_nodes(nodes, edges, ref, k, max_var, expected_nodes, expecte
     compare_kmer_node_lists(res_kmers, res_nodes, expected_kmers, expected_nodes, k)
 
 @pytest.mark.parametrize("file,k,max_var", [
-        #("data/example_graph.npz", 4, 4),
-        #("data/example_graph.npz", 6, 6),
-        #("data/example_graph.npz", 8, 250),
-        #("data/example_graph.npz", 12, 250),
-        #("data/example_graph.npz", 16, 250),
-        #("data/example_graph.npz", 24, 250),
+        ("data/example_graph.npz", 4, 4),
+        ("data/example_graph.npz", 6, 4),
+        ("data/example_graph.npz", 8, 4),
+        ("data/example_graph.npz", 12, 12),
+        ("data/example_graph.npz", 16, 16),
+        ("data/example_graph.npz", 24, 24),
+        ("data/example_graph.npz", 31, 31)
     ])
 def test_obgraph(file, k, max_var):
     obgraph = OBGraph.from_file(file)

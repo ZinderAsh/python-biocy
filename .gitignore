@@ -130,4 +130,6 @@ dmypy.json
 
 # Other
 *.html
+*.txt
+*.o
 other/
