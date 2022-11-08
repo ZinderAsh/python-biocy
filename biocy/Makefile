@@ -81,10 +81,16 @@ servedocs: docs ## compile the docs watching for changes
 release: dist ## package and upload a release
 	twine upload dist/*
 
-dist: clean ## builds source and wheel package
+dist: clean kmer_finder.o ## builds source and wheel package
 	python setup.py sdist
 	python setup.py bdist_wheel
 	ls -l dist
 
-install: clean ## install the package to the active Python's site-packages
+install: clean kmer_finder.o ## install the package to the active Python's site-packages
 	python setup.py install --user
+
+graph.o: biocy/graph.c biocy/graph.h
+	gcc -c -Wall -Wextra -o $@ $<
+
+kmer_finder.o: biocy/kmer_finder.c biocy/kmer_finder.h graph.o
+	gcc -c -Wall -Wextra -o $@ $<

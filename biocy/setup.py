@@ -16,7 +16,7 @@ requirements = ['cython', ]
 test_requirements = ['pytest>=3', ]
 
 extensions = [
-    Extension("Graph", ["biocy/Graph.pyx"]),
+    Extension("Graph", ["biocy/Graph.pyx", "biocy/graph.c", "biocy/kmer_finder.c"]),
 ]
 
 extensions = cythonize(extensions, annotate=True)

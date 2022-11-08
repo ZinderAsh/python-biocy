@@ -105,6 +105,7 @@ ENV/
 .vscode/
 .idea/
 
-biocy/*.c
+biocy/Graph.c
 biocy/*.so
+biocy/*.o
 biocy/*.html
