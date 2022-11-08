@@ -67,12 +67,12 @@ def compare_kmer_node_lists(kmers_a, nodes_a, kmers_b, nodes_b, k):
             (["ACTGA", "G", "A", "C", "G", "T", "G", "A", "C", "G", "T", "ACTGA"],
              [[1, 2], [3, 4], [3, 4], [5, 6], [5, 6], [7, 8], [7, 8], [9, 10], [9, 10], [11], [11], []],
              [0, 1, 3, 5, 7, 9, 11], 4, 250),
-            #(["ACTGA", "G", "A", "C", "G", "T", "G", "A", "C", "G", "T", "ACTGA"],
-            # [[1, 2], [3, 4], [3, 4], [5, 6], [5, 6], [7, 8], [7, 8], [9, 10], [9, 10], [11], [11], []],
-            # [0, 1, 3, 5, 7, 9, 11], 6, 2),
-            #(["ACTGA", "G", "A", "C", "G", "T", "G", "A", "C", "G", "T", "ACTGA"],
-            # [[1, 2], [3, 4], [3, 4], [5, 6], [5, 6], [7, 8], [7, 8], [9, 10], [9, 10], [11], [11], []],
-            # [0, 1, 3, 5, 7, 9, 11], 6, 4),
+            (["ACTGA", "G", "A", "C", "G", "T", "G", "A", "C", "G", "T", "ACTGA"],
+             [[1, 2], [3, 4], [3, 4], [5, 6], [5, 6], [7, 8], [7, 8], [9, 10], [9, 10], [11], [11], []],
+             [0, 1, 3, 5, 7, 9, 11], 6, 2),
+            (["ACTGA", "G", "A", "C", "G", "T", "G", "A", "C", "G", "T", "ACTGA"],
+             [[1, 2], [3, 4], [3, 4], [5, 6], [5, 6], [7, 8], [7, 8], [9, 10], [9, 10], [11], [11], []],
+             [0, 1, 3, 5, 7, 9, 11], 6, 4),
             (["ACTGA", "G", "A", "C", "G", "T", "G", "A", "C", "G", "T", "ACTGA"],
              [[1, 2], [3, 4], [3, 4], [5, 6], [5, 6], [7, 8], [7, 8], [9, 10], [9, 10], [11], [11], []],
              [0, 1, 3, 5, 7, 9, 11], 6, 6)
@@ -149,12 +149,12 @@ def test_kmer_empty_nodes(nodes, edges, ref, k, max_var, expected_nodes, expecte
     compare_kmer_node_lists(res_kmers, res_nodes, expected_kmers, expected_nodes, k)
 
 @pytest.mark.parametrize("file,k,max_var", [
-        ("data/example_graph.npz", 4, 4),
-        ("data/example_graph.npz", 6, 6),
-        ("data/example_graph.npz", 8, 250),
-        ("data/example_graph.npz", 12, 250),
-        ("data/example_graph.npz", 16, 250),
-        ("data/example_graph.npz", 24, 250),
+        #("data/example_graph.npz", 4, 4),
+        #("data/example_graph.npz", 6, 6),
+        #("data/example_graph.npz", 8, 250),
+        #("data/example_graph.npz", 12, 250),
+        #("data/example_graph.npz", 16, 250),
+        #("data/example_graph.npz", 24, 250),
     ])
 def test_obgraph(file, k, max_var):
     obgraph = OBGraph.from_file(file)

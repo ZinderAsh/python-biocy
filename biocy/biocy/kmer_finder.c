@@ -57,8 +57,6 @@ void add_found(struct kmer_finder *kf, unsigned long node_id, unsigned long long
 }
 
 void get_kmers(struct kmer_finder *kf, unsigned long node_id) {
-	// Update lengths of buffers
-	kf->path_buffer[0] = node_id;
 	struct node *node = kf->graph->nodes + node_id;
 
 	// Ensure max variant nodes
@@ -66,6 +64,9 @@ void get_kmers(struct kmer_finder *kf, unsigned long node_id) {
 		if (kf->variant_counter >= kf->max_variant_nodes) return;
 		kf->variant_counter++;
 	}
+
+	// Update lengths of buffers
+	kf->path_buffer[0] = node_id;
 
 	// Store the node's sequence in the buffer
 	kf->kmer_buffer = node->sequences[0];
@@ -120,9 +121,6 @@ void get_kmers(struct kmer_finder *kf, unsigned long node_id) {
 }
 
 void get_kmers_recursive(struct kmer_finder *kf, unsigned long node_id, unsigned char kmer_len, unsigned char kmer_ext_len) {
-	// Update lengths and buffers
-	kf->path_buffer[kf->path_buffer_len] = node_id;
-	kf->path_buffer_len++;
 	struct node *node = kf->graph->nodes + node_id;
 
 	// Ensure max_variant_nodes is adhered to
@@ -130,6 +128,10 @@ void get_kmers_recursive(struct kmer_finder *kf, unsigned long node_id, unsigned
 		if (kf->variant_counter >= kf->max_variant_nodes) return;
 		kf->variant_counter++;
 	}
+
+	// Update lengths and buffers
+	kf->path_buffer[kf->path_buffer_len] = node_id;
+	kf->path_buffer_len++;
 
 	if (node->sequences_len != 0) {
 		if (kmer_ext_len == 0) {
