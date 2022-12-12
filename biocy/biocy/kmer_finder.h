@@ -29,5 +29,6 @@ struct kmer_finder {
 struct kmer_finder *init_kmer_finder(struct graph *graph, unsigned char k, unsigned char max_variant_nodes);
 void free_kmer_finder(struct kmer_finder *kf);
 void find_kmers(struct kmer_finder *kf);
+void reverse_kmer_endian(struct kmer_finder *kf);
 
 #endif

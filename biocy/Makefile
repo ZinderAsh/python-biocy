@@ -26,7 +26,7 @@ BROWSER := python -c "$$BROWSER_PYSCRIPT"
 help:
 	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
-clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
+clean: clean-build clean-pyc clean-test clean-c ## remove all build, test, coverage and Python artifacts
 
 clean-build: ## remove build artifacts
 	rm -fr build/
@@ -90,7 +90,19 @@ install: clean kmer_finder.o ## install the package to the active Python's site-
 	python setup.py install --user
 
 graph.o: biocy/graph.c biocy/graph.h
-	gcc -c -Wall -Wextra -o $@ $<
+	gcc -g -c -Wall -Wextra -o $@ $<
 
 kmer_finder.o: biocy/kmer_finder.c biocy/kmer_finder.h graph.o
-	gcc -c -Wall -Wextra -o $@ $<
+	gcc -g -c -Wall -Wextra -o $@ $<
+
+utils.o: biocy/utils.c biocy/utils.h
+	gcc -g -c -Wall -Wextra -o $@ $<
+
+graph: biocy/graph.c biocy/graph.h utils.o
+	gcc -g -Wall -Wextra -o $@ $< utils.o -I.
+
+kmer_finder: biocy/kmer_finder.c biocy/kmer_finder.h graph.o utils.o
+	gcc -g -Wall -Wextra -o $@ $< graph.o utils.o -I.
+
+clean-c:
+	rm -f graph kmer_finder graph.o kmer_finder.o utils.o

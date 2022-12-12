@@ -4,6 +4,7 @@
 
 from setuptools import setup, find_packages, Extension
 from Cython.Build import cythonize
+import numpy
 
 with open('README.rst') as readme_file:
     readme = readme_file.read()
@@ -16,7 +17,9 @@ requirements = ['cython', ]
 test_requirements = ['pytest>=3', ]
 
 extensions = [
-    Extension("Graph", ["biocy/Graph.pyx", "biocy/graph.c", "biocy/kmer_finder.c"]),
+    Extension("Graph",
+              ["biocy/Graph.pyx", "biocy/graph.c", "biocy/kmer_finder.c", "biocy/utils.c"],
+              include_dirs=[numpy.get_include()]),
 ]
 
 extensions = cythonize(extensions, annotate=True)

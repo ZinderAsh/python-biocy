@@ -1,12 +1,13 @@
 from libc.stdlib cimport malloc, free
-from libc.string cimport strdup, strlen, memset
+from libc.string cimport strdup, strlen, memset, memcpy
 from libc.stdio cimport printf
 from cpython cimport array
 import numpy as np
+cimport numpy as cnp
 
 cdef extern from "graph.h":
     struct node:
-        unsigned int len
+        unsigned int length
         unsigned long long *sequences
         unsigned short sequences_len
         unsigned long *edges
@@ -16,6 +17,15 @@ cdef extern from "graph.h":
     struct graph:
         node *nodes
         unsigned long nodes_len
+
+    void from_obgraph(graph *graph, unsigned int node_count,
+                      unsigned char *sequences, unsigned int *sequence_lens,
+                      unsigned int *edges, long long *edges_lens)
+    int from_file(char *filepath, graph *graph)
+    void to_file(char *filepath, graph *graph)
+    int from_file_gfa_encoded(char *filepath, graph *graph, char *encoding, char flags)
+
+    void set_encoding(graph *graph, char *encoding)
 
 cdef extern from "kmer_finder.h":
     struct kmer_finder:
@@ -41,77 +51,40 @@ cdef extern from "kmer_finder.h":
     kmer_finder *init_kmer_finder(graph *graph, unsigned char k, unsigned char max_variant_nodes)
     void free_kmer_finder(kmer_finder *kf)
     void find_kmers(kmer_finder *kf)
-
-#ctypedef node_t Node_t
-#ctypedef graph_t Graph_t
-
-#cdef class Node:
-#    cdef Node_t data
-#
-#    def __cinit__(self, char *sequence, unsigned char edge_count):
-#        self.data.sequence = <char *> malloc(len(sequence) * sizeof(char))
-#        self.data.edge_count = edge_count
-#        self.data.edges = <unsigned int *> malloc(edge_count * sizeof(char))
-#
-#    def __dealloc__(self):
-#        free(self.data.sequence)
-#        free(self.data.edges)
+    void reverse_kmer_endian(kmer_finder *kf)
 
 cdef class Graph:
     cdef graph data
 
-    def __cinit__(self):
+    def __cinit__(self, encoding):
         self.data.nodes = NULL
-
-    """
-    @staticmethod
-    def from_sequence_edges(sequence, edges):
-        node = Node()
-        node.sequence_len = len(sequence)
-        node.num_subsequences = 0 if node.sequence_len == 0 else 1 + node.sequence_len // 31
-        node.sequence = np.empty((node.num_subsequences,), dtype=np.ulonglong)
-        for i in range(node.num_subsequences):
-            segment_end = min((i + 1) * 31, node.sequence_len)
-            node.sequence[i] = hash_max_kmer(sequence.encode('ASCII')[(i * 31):segment_end], segment_end - (i * 31))
-        node.edges = np.array(edges, dtype=np.int32)
-        return node
+        set_encoding(&(self.data), encoding)
 
     @staticmethod
-    def from_obgraph(node, sequence, edges):
-        node = Node()
-        node.sequence_len = sequence.shape[0]
-        node.num_subsequences = 0 if node.sequence_len == 0 else 1 + node.sequence_len // 31
-        node.sequence = np.empty((node.num_subsequences,), dtype=np.ulonglong)
-        for i in range(node.num_subsequences):
-            segment_end = min((i + 1) * 31, node.sequence_len)
-            node.sequence[i] = pack_max_kmer(sequence, i * 31, segment_end)
-        node.edges = np.array(edges, dtype=np.int32)
-        return node
-    """
-
-    @staticmethod
-    cdef void init_node(node *n, sequence, unsigned int sequence_len, edges, unsigned char edges_len, is_ascii):
+    cdef void init_node(node *n, sequence, unsigned long sequence_len, edges, unsigned char edges_len, is_ascii):
         n.reference = 0
-        n.len = sequence_len
+        n.length = sequence_len
         if sequence_len != 0:
-            n.sequences_len = 1 + sequence_len // 31
+            n.sequences_len = 1 + sequence_len // 32
         else:
             n.sequences_len = 0
         n.sequences = <unsigned long long *> malloc(n.sequences_len * sizeof(unsigned long long))
         for i in range(n.sequences_len):
-            segment_end = min((i + 1) * 31, n.len)
+            segment_end = min((i + 1) * 32, n.length)
             if is_ascii:
-                n.sequences[i] = hash_max_kmer(sequence, i * 31, segment_end)
+                n.sequences[i] = hash_max_kmer(sequence, i * 32, segment_end)
             else:
-                n.sequences[i] = pack_max_kmer(sequence, i * 31, segment_end)
+                n.sequences[i] = pack_max_kmer(sequence, i * 32, segment_end)
         n.edges_len = edges_len
         n.edges = <unsigned long *> malloc(edges_len * sizeof(unsigned long))
         for i in range(edges_len):
             n.edges[i] = edges[i]
 
     @staticmethod
-    def from_obgraph(obg):
-        g = Graph()
+    def from_obgraph(obg, encoding="ACGT"):
+        if not Graph.is_valid_encoding(encoding):
+            return None
+        g = Graph(encoding.encode('ASCII'))
         cdef node *n
         cdef unsigned int node_count = len(obg.nodes)
         cdef unsigned int i
@@ -130,9 +103,51 @@ cdef class Graph:
             (g.data.nodes + i).reference = 1
     
         return g
+        """
+        cdef cnp.ndarray[unsigned char, ndim=1, mode="c"] sequences = obg.sequences._data
+        cdef cnp.ndarray[unsigned int, ndim=1, mode="c"] sequence_lens = obg.nodes
+        cdef cnp.ndarray[unsigned int, ndim=1, mode="c"] edges = obg.edges._data
+        cdef cnp.ndarray[long long, ndim=1, mode="c"] edges_len = obg.edges.shape.lengths.copy(order='C')
+        from_obgraph(&(g.data), len(obg.nodes),
+                     <unsigned char *> sequences.data,
+                     <unsigned int *> sequence_lens.data,
+                     <unsigned int *> edges.data,
+                     <long long *> edges_len.data)
+        cdef unsigned int i
+        for i in obg.linear_ref_nodes():
+            (g.data.nodes + i).reference = 1
+        return g
+        """
 
     @staticmethod
-    def from_sequence_edge_lists(sequences, edges, ref=None):
+    def from_gfa(filepath, encoding="ACGT", optimize=True):
+        cdef char flags = 0
+        if optimize:
+            flags += 1
+        g = Graph(encoding.encode('ASCII'))
+        cdef char *fpath = strdup(filepath.encode('ASCII'))
+        from_file_gfa_encoded(fpath, &(g.data), encoding.encode('ASCII'), flags)
+        free(fpath)
+        return g
+
+    @staticmethod
+    def from_file(filepath):
+        g = Graph("ACGT".encode('ASCII'))
+        cdef char *fpath = strdup(filepath.encode('ASCII'))
+        cdef int ret = from_file(fpath, &(g.data))
+        free(fpath)
+        if ret == 1:
+            print("The specified file was of an invalid format.")
+            raise
+        return g
+
+    def to_file(self, filepath):
+        cdef char *fpath = strdup(filepath.encode('ASCII'))
+        to_file(fpath, &(self.data))
+        free(fpath)
+
+    @staticmethod
+    def from_sequence_edge_lists(sequences, edges, encoding="ACGT", ref=None):
         """
         Args:
             sequences: ["ACT", "G", "A", "GT"]
@@ -140,7 +155,9 @@ cdef class Graph:
         List index determines a node's ID, and edges refer to what IDs are a node is connected to.
         Assumes the first node is the start node
         """
-        g = Graph()
+        if not Graph.is_valid_encoding(encoding):
+            return None
+        g = Graph(encoding.encode('ASCII'))
         cdef node *n
         cdef unsigned int node_count = len(sequences)
         cdef unsigned int i
@@ -162,17 +179,37 @@ cdef class Graph:
                 (g.data.nodes + i).reference = 1
         return g
 
+    @staticmethod
+    def is_valid_encoding(encoding):
+        if len(encoding) != 4:
+            raise "Graph encoding must be a permutation of ACGT."
+            return False
+        encoding = encoding.upper()
+        for i in "ACGT":
+            if i not in encoding:
+                raise "Graph encoding must be a permutation of ACGT."
+                return False
+        return True
 
-    def create_kmer_index(self, k, max_variant_nodes=4):
-        cdef kmer_finder *kf = init_kmer_finder(&self.data, k, max_variant_nodes)
+    def create_kmer_index(self, k, max_variant_nodes=31, big_endian=True):
+        if k < 1 or k > 31:
+            raise "create_kmer_index: k must be between 1 and 31 inclusive"
+        if max_variant_nodes <= 0 or max_variant_nodes > k:
+            max_variant_nodes = k
+        print("Finding kmers...")
+        cdef kmer_finder *kf = init_kmer_finder(&(self.data), k, max_variant_nodes)
         find_kmers(kf)
-        #kmers, nodes = GraphKmerFinder(self, k, max_variant_nodes).find()
+        if not big_endian:
+            reverse_kmer_endian(kf)
+        print("Copying to numpy arrays")
         kmers = np.empty((kf.found_count,), dtype=np.ulonglong)
         nodes = np.empty((kf.found_count,), dtype=np.uint32)
-        for i in range(kf.found_count):
-            kmers[i] = kf.found_kmers[i]
-            nodes[i] = kf.found_nodes[i]
+        cdef cnp.ndarray[unsigned long long, ndim=1, mode="c"] c_kmers = kmers
+        cdef cnp.ndarray[unsigned int, ndim=1, mode="c"] c_nodes = nodes
+        memcpy(c_kmers.data, kf.found_kmers, sizeof(unsigned long long) * kf.found_count)
+        memcpy(c_nodes.data, kf.found_nodes, sizeof(unsigned int) * kf.found_count)
         free_kmer_finder(kf)
+        print("Done")
         return kmers, nodes
 
 def hash_kmer(arr, k):
