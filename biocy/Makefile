@@ -89,20 +89,20 @@ dist: clean kmer_finder.o ## builds source and wheel package
 install: clean kmer_finder.o ## install the package to the active Python's site-packages
 	python setup.py install --user
 
-graph.o: biocy/graph.c biocy/graph.h
-	gcc -g -c -Wall -Wextra -o $@ $<
+Graph.o: biocy/cpp/Graph.cpp biocy/cpp/Graph.hpp biocy/cpp/node.hpp
+	gcc -lstdc++ -g -c -Wall -Wextra -o $@ $<
 
-kmer_finder.o: biocy/kmer_finder.c biocy/kmer_finder.h graph.o
-	gcc -g -c -Wall -Wextra -o $@ $<
+KmerFinder.o: biocy/cpp/KmerFinder.cpp biocy/cpp/KmerFinder.hpp Graph.o
+	gcc -lstdc++ -g -c -Wall -Wextra -o $@ $<
 
-utils.o: biocy/utils.c biocy/utils.h
-	gcc -g -c -Wall -Wextra -o $@ $<
+GFA.o: biocy/cpp/GFA.cpp biocy/cpp/GFA.hpp biocy/cpp/utils.hpp
+	gcc -lstdc++ -g -c -Wall -Wextra -o $@ $<
 
-graph: biocy/graph.c biocy/graph.h utils.o
-	gcc -g -Wall -Wextra -o $@ $< utils.o -I.
+utils.o: biocy/cpp/utils.cpp biocy/cpp/utils.hpp
+	gcc -lstdc++ -g -c -Wall -Wextra -o $@ $<
 
-kmer_finder: biocy/kmer_finder.c biocy/kmer_finder.h graph.o utils.o
-	gcc -g -Wall -Wextra -o $@ $< graph.o utils.o -I.
+kmer_finder: biocy/cpp/KmerFinder.cpp biocy/cpp/KmerFinder.hpp Graph.o GFA.o utils.o
+	gcc -lstdc++ -g -Wall -Wextra -o $@ $< GFA.o Graph.o utils.o -I.
 
 clean-c:
-	rm -f graph kmer_finder graph.o kmer_finder.o utils.o
+	rm -f kmer_finder Graph.o KmerFinder.o GFA.o utils.o

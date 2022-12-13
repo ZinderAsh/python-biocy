@@ -2,6 +2,8 @@
 
 """The setup script."""
 
+# distutils: language = c++
+
 from setuptools import setup, find_packages, Extension
 from Cython.Build import cythonize
 import numpy
@@ -18,7 +20,7 @@ test_requirements = ['pytest>=3', ]
 
 extensions = [
     Extension("Graph",
-              ["biocy/Graph.pyx", "biocy/graph.c", "biocy/kmer_finder.c", "biocy/utils.c"],
+              ["biocy/Graph.pyx", "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/utils.cpp"],
               include_dirs=[numpy.get_include()]),
 ]
 
