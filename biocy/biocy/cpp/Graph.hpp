@@ -2,11 +2,14 @@
 #define BIOCY_GRAPH_H
 
 #include "node.hpp"
+
 #include <cstring>
 #include <cstdlib>
 #include <stdint.h>
 #include <tuple>
 #include <stdio.h>
+
+#include "hashing.hpp"
 
 #define BCG_FORMAT_CODE "BIOCYGRAPH"
 
@@ -16,6 +19,12 @@ public:
 	uint32_t nodes_len;
 	char encoding[4];
 	uint8_t encoding_map[256];	
+	
+	Graph(const char *encoding) {
+		nodes = NULL;
+		nodes_len = 0;
+		this->SetEncoding(encoding);
+	}
 
 	~Graph() {
 		if (nodes != nullptr) {
@@ -37,13 +46,15 @@ public:
 
 	void ToFile(char *filepath);
 
-private:
-	Graph(const char *encoding) {
-		nodes = nullptr;
-		nodes_len = 0;
-		this->SetEncoding(encoding);
+	uint64_t HashMinKmer(char *str, uint8_t k) {
+		return hash_min_kmer_by_map(str, k, encoding_map);
 	}
+	uint64_t HashMaxKmer(char *str, uint8_t k) {
+		return hash_max_kmer_by_map(str, k, encoding_map);
+	}
+	uint64_t HashKmer(char *str, uint8_t k) { return HashMinKmer(str, k); }
 
+private:
 	void SetEncoding(const char *encoding);
 	static std::tuple<uint32_t, uint32_t> GFAGetNodeIDRange(FILE *f);
 

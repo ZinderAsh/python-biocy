@@ -20,7 +20,7 @@ test_requirements = ['pytest>=3', ]
 
 extensions = [
     Extension("Graph",
-              ["biocy/Graph.pyx", "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/utils.cpp"],
+              ["biocy/Graph.pyx", "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/hashing.cpp"],
               include_dirs=[numpy.get_include()]),
 ]
 

@@ -4,7 +4,6 @@
 #include <string.h>
 #include <iostream>
 
-#include "utils.hpp"
 #include "GFA.hpp"
 
 #define LINE_BUF_LEN 1024
@@ -301,14 +300,3 @@ void Graph::SetEncoding(const char *encoding) {
 	fill_map_by_encoding(this->encoding_map, encoding);
 }
 
-/*
-int main(int argc, char** argv) {
-	if (argc != 2) {
-		printf("This program requires one argument: A filename for an npz file.\n");
-	}
-	struct graph graph;
-	from_file(argv[1], &graph);
-	printf("%ld nodes\n", graph.nodes_len);
-	return 0;
-}
-*/

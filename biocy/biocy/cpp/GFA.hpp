@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <cstring>
-#include "utils.hpp"
+#include "hashing.hpp"
 
 class GFA {
 public:

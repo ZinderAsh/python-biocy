@@ -11,6 +11,7 @@ cimport numpy as cnp
 from biocy.node cimport node as cppnode
 from biocy.Graph cimport Graph as cppGraph
 from biocy.KmerFinder cimport KmerFinder as cppKmerFinder
+from biocy.hashing cimport pack_max_kmer_with_offset
 
 cdef class Graph:
     cdef cppGraph *data
@@ -18,52 +19,57 @@ cdef class Graph:
     def __cinit__(self):
         self.data = NULL
 
-    """
-    @staticmethod
-    cdef void init_node(node *n, sequence, unsigned long sequence_len, edges, unsigned char edges_len, is_ascii):
+    cdef void init_node(self, cppnode *n, sequence, uint32_t sequence_len, edges, uint8_t edges_len, is_ascii):
+        cdef char *ascii_seq
+        cdef cnp.ndarray[char, ndim=1, mode="c"] numpy_seq
+        cdef uint32_t i
+        cdef uint64_t hashed_seq
         n.reference = 0
         n.length = sequence_len
         if sequence_len != 0:
             n.sequences_len = 1 + sequence_len // 32
         else:
             n.sequences_len = 0
-        n.sequences = <unsigned long long *> malloc(n.sequences_len * sizeof(unsigned long long))
+        n.sequences = <uint64_t *> malloc(n.sequences_len * sizeof(uint64_t))
         for i in range(n.sequences_len):
             segment_end = min((i + 1) * 32, n.length)
             if is_ascii:
-                n.sequences[i] = hash_max_kmer(sequence, i * 32, segment_end)
+                ascii_seq = strdup(sequence.encode('ASCII'))
+                n.sequences[i] = self.data.HashMaxKmer(ascii_seq + (i * 32), segment_end - (i * 32))
+                free(ascii_seq)
             else:
-                n.sequences[i] = pack_max_kmer(sequence, i * 32, segment_end)
+                numpy_seq = sequence
+                n.sequences[i] = pack_max_kmer_with_offset(numpy_seq.data, i * 32, segment_end - (i * 32))
         n.edges_len = edges_len
-        n.edges = <unsigned long *> malloc(edges_len * sizeof(unsigned long))
+        n.edges = <uint32_t *> malloc(edges_len * sizeof(uint32_t))
         for i in range(edges_len):
             n.edges[i] = edges[i]
-    """
-    """
+    
     @staticmethod
     def from_obgraph(obg, encoding="ACGT"):
         if not Graph.is_valid_encoding(encoding):
             return None
         g = Graph()
-        cdef node *n
-        cdef unsigned int node_count = len(obg.nodes)
-        cdef unsigned int i
-        g.data.nodes = <node *> malloc(node_count * sizeof(node))
+        g.data = new cppGraph(encoding.encode('ASCII'))
+        cdef cppnode *n
+        cdef uint32_t node_count = len(obg.nodes)
+        cdef uint32_t i
+        g.data.nodes = <cppnode *> malloc(node_count * sizeof(cppnode))
         g.data.nodes_len = node_count
         for i in range(node_count):
             n = g.data.nodes + i
-            Graph.init_node(n,
-                            obg.sequences[i],
-                            obg.sequences[i].shape[0],
-                            obg.edges[i],
-                            obg.edges[i].shape[0],
-                            False)
+            g.init_node(n,
+                        obg.sequences[i],
+                        obg.sequences[i].shape[0],
+                        obg.edges[i],
+                        obg.edges[i].shape[0],
+                        False)
         ref = obg.linear_ref_nodes()
         for i in ref:
             (g.data.nodes + i).reference = 1
     
         return g
-    """
+    
     """
         cdef cnp.ndarray[unsigned char, ndim=1, mode="c"] sequences = obg.sequences._data
         cdef cnp.ndarray[unsigned int, ndim=1, mode="c"] sequence_lens = obg.nodes
@@ -164,8 +170,6 @@ cdef class Graph:
         if max_variant_nodes <= 0 or max_variant_nodes > k:
             max_variant_nodes = k
         print("Finding kmers...")
-        #cdef uint8_t ck = k
-        #cdef uint8_t cmax_vars = max_variant_nodes
         cdef cppKmerFinder *kf = new cppKmerFinder(self.data, k, max_variant_nodes)
         kf.Find()
         if not big_endian:
@@ -180,25 +184,3 @@ cdef class Graph:
         del kf
         print("Done")
         return kmers, nodes
-
-def hash_kmer(arr, k):
-    cdef unsigned long long hashed = 0
-    for i in range(k):
-        hashed |= (arr[i] & 6) << ((k - i - 1) << 1)
-    return hashed >> 1
-
-cdef unsigned long long hash_max_kmer(arr, unsigned int start, unsigned int end):
-    cdef unsigned long long hashed = 0
-    cdef unsigned long long val
-    for i in range(start, end):
-        val = arr[i]
-        hashed |= (val & 6) << (61 - (i - start) * 2)
-    return hashed
-
-cdef unsigned long long pack_max_kmer(arr, unsigned int start, unsigned int end):
-    cdef unsigned long long packed = 0
-    cdef unsigned long long val
-    for i in range(start, end):
-        val = arr[i]
-        packed |= (val << (62 - (i - start) * 2))
-    return packed
