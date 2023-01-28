@@ -157,7 +157,7 @@ def test_kmer_empty_nodes(nodes, edges, ref, k, max_var, expected_nodes, expecte
         ("tests/data/example_graph.npz", 24, 24),
         ("tests/data/example_graph.npz", 31, 31)
     ])
-def test_obgraph_against_kafe_big_graph(file, k, max_var):
+def test_obgraph_against_kage_big_graph(file, k, max_var):
     obgraph = OBGraph.from_file(file)
     graph = Graph.from_obgraph(obgraph)
     res_kmers, res_nodes = graph.create_kmer_index(k, max_variant_nodes=max_var)
