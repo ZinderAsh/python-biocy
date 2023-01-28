@@ -41,24 +41,47 @@ public:
 	static Graph *FromGFAFile(char *filepath);
 	static Graph *FromGFAFileEncoded(char *filepath, const char *encoding);
 
+	struct node *Get(uint32_t node_id) {
+		return nodes + node_id;
+	}
+
 	void Compress();
-	void AddEmptyNodes();
+	uint32_t AddEmptyNodes();
 
 	void ToFile(char *filepath);
 
-	uint64_t HashMinKmer(char *str, uint8_t k) {
+	uint64_t HashMinKmer(const char *str, uint8_t k) {
 		return hash_min_kmer_by_map(str, k, encoding_map);
 	}
-	uint64_t HashMaxKmer(char *str, uint8_t k) {
+	uint64_t HashMaxKmer(const char *str, uint8_t k) {
 		return hash_max_kmer_by_map(str, k, encoding_map);
 	}
-	uint64_t HashKmer(char *str, uint8_t k) { return HashMinKmer(str, k); }
+	uint64_t HashKmer(const char *str, uint8_t k) { return HashMinKmer(str, k); }
+
+	char *DecodeKmer(uint64_t hash, uint8_t k) {
+		return decode_kmer_by_map(hash, k, encoding_map);
+	}
+
+	uint32_t GetRootNodeID();
+	uint32_t GetLastNodeID();
+	uint32_t GetReferenceNodeID(uint32_t reference_index);
+	uint32_t GetNextReferenceNodeID(uint32_t previous_id);
+
+	uint32_t AddNode(const char *sequence);
+	void AddEdge(uint32_t from_node_id, uint32_t to_node_id);
 
 private:
 	void SetEncoding(const char *encoding);
 	static std::tuple<uint32_t, uint32_t> GFAGetNodeIDRange(FILE *f);
 
 	uint32_t *CreateCompressedIDMap(uint32_t *return_compressed_node_count);
+	uint32_t GetRequiredEmptyNodeCount();
+	uint32_t GetRequiredEmptyNodesFromNode(uint32_t from_node_id);
+	bool NodeHasEdge(uint32_t node_id, uint32_t edge_id);
+	void InitializeEmptyNode(uint32_t node_id);
+	uint32_t CreateEmptyNodes();
+	uint32_t AppendEmptyNode();
+	void MoveEdgesToIntermediateNode(uint32_t from_node_id, uint32_t to_node_id, uint32_t mid_node_id);
 };
 
 #endif

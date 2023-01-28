@@ -7,11 +7,19 @@ from libc.stdint cimport uint8_t, uint32_t, uint64_t
 from cpython cimport array
 import numpy as np
 cimport numpy as cnp
+from obgraph import Graph as OBGraph 
+from npstructures import RaggedArray
 
 from biocy.node cimport node as cppnode
 from biocy.Graph cimport Graph as cppGraph
 from biocy.KmerFinder cimport KmerFinder as cppKmerFinder
-from biocy.hashing cimport pack_max_kmer_with_offset
+from biocy.hashing cimport pack_max_kmer_with_offset, decode_kmer_by_map, fill_map_by_encoding, hash_min_kmer_by_encoding
+
+cdef uint8_t get_node_base(cppnode *n, uint32_t index):
+    cdef uint32_t sequence_index = index // 32
+    cdef uint8_t sub_index = index % 32
+
+    return ((n.sequences[sequence_index]) >> ((31 - sub_index) * 2)) & 3
 
 cdef class Graph:
     cdef cppGraph *data
@@ -25,6 +33,7 @@ cdef class Graph:
         cdef uint32_t i
         cdef uint64_t hashed_seq
         n.reference = 0
+        n.reference_index = 0
         n.length = sequence_len
         if sequence_len != 0:
             n.sequences_len = 1 + sequence_len // 32
@@ -34,7 +43,7 @@ cdef class Graph:
         for i in range(n.sequences_len):
             segment_end = min((i + 1) * 32, n.length)
             if is_ascii:
-                ascii_seq = strdup(sequence.encode('ASCII'))
+                ascii_seq = strdup(sequence)
                 n.sequences[i] = self.data.HashMaxKmer(ascii_seq + (i * 32), segment_end - (i * 32))
                 free(ascii_seq)
             else:
@@ -54,6 +63,8 @@ cdef class Graph:
         cdef cppnode *n
         cdef uint32_t node_count = len(obg.nodes)
         cdef uint32_t i
+        cdef uint32_t index
+        cdef uint8_t byte
         g.data.nodes = <cppnode *> malloc(node_count * sizeof(cppnode))
         g.data.nodes_len = node_count
         for i in range(node_count):
@@ -64,27 +75,100 @@ cdef class Graph:
                         obg.edges[i],
                         obg.edges[i].shape[0],
                         False)
-        ref = obg.linear_ref_nodes()
-        for i in ref:
-            (g.data.nodes + i).reference = 1
-    
+        #ref = obg.linear_ref_nodes()
+        #for i, index in enumerate(ref):
+        #    (g.data.nodes + index).reference = 1
+        #    (g.data.nodes + index).reference_index = i
+        ref = obg.linear_ref_nodes_and_dummy_nodes_index
+        for i, byte in enumerate(ref):
+            (g.data.nodes + i).reference = byte
+
         return g
-    
-    """
-        cdef cnp.ndarray[unsigned char, ndim=1, mode="c"] sequences = obg.sequences._data
-        cdef cnp.ndarray[unsigned int, ndim=1, mode="c"] sequence_lens = obg.nodes
-        cdef cnp.ndarray[unsigned int, ndim=1, mode="c"] edges = obg.edges._data
-        cdef cnp.ndarray[long long, ndim=1, mode="c"] edges_len = obg.edges.shape.lengths.copy(order='C')
-        from_obgraph(&(g.data), len(obg.nodes),
-                     <unsigned char *> sequences.data,
-                     <unsigned int *> sequence_lens.data,
-                     <unsigned int *> edges.data,
-                     <long long *> edges_len.data)
-        cdef unsigned int i
-        for i in obg.linear_ref_nodes():
-            (g.data.nodes + i).reference = 1
-        return g
-    """
+
+    def to_obgraph(self):
+        cdef cppnode *n
+        cdef uint32_t i
+        cdef uint32_t j
+        cdef uint64_t reference_length = 0
+        cdef uint32_t root_id
+        cdef cppnode *root
+
+        node_count = self.data.nodes_len
+
+        node_lengths = np.empty((node_count,), dtype=np.uint32)
+        edge_lengths = np.empty((node_count,), dtype=np.uint8)
+        chromosome_start_nodes = None
+        for i in range(node_count):
+            n = self.data.nodes + i
+            node_lengths[i] = n.length
+            edge_lengths[i] = n.edges_len
+
+            if chromosome_start_nodes is None:
+                if n.edges_len > 0 and n.edges_in_len == 0:
+                    if not self.node_has_parent(i):
+                        chromosome_start_nodes = [i]
+
+        sequences_val = np.empty((sum(node_lengths),), dtype=np.uint8)
+        edges_val = np.empty((sum(edge_lengths),), dtype=np.uint32)
+        cdef uint64_t base_index = 0
+        cdef uint64_t edge_index = 0;
+        for i in range(node_count):
+            n = self.data.nodes + i
+            for j in range(n.length):
+                sequences_val[base_index] = get_node_base(n, j)
+                base_index += 1
+            for j in range(n.edges_len):
+                edges_val[edge_index] = n.edges[j]
+                edge_index += 1
+
+        sequences = RaggedArray(sequences_val, node_lengths)
+        edges = RaggedArray(edges_val, edge_lengths)
+
+        linear_ref_nodes_index = np.zeros((node_count,), dtype=np.uint8)
+        linear_ref_nodes_and_dummy_nodes_index = np.zeros((node_count,), dtype=np.uint8)
+        for i in range(node_count):
+            n = self.data.nodes + i
+            if n.reference:
+                linear_ref_nodes_and_dummy_nodes_index[i] = 1
+                if n.length > 0:
+                    linear_ref_nodes_index[i] = 1
+
+        node_to_ref_offset = None
+        ref_to_node_offset = None
+        if False and chromosome_start_nodes is not None:
+            #node_to_ref_offset = np.zeros((node_count,), dtype=np.uint64)
+            root_id = chromosome_start_nodes[0]
+            root = self.data.nodes + root_id
+            count = 0
+            while root.edges_len > 0:
+                for i in range(root.edges_len):
+                    n = self.data.nodes + root.edges[i]
+                    print(root_id, root.reference_index, "->", root.edges[i], n.reference_index)
+                root_id = self.data.GetNextReferenceNodeID(root_id)
+                root = self.data.nodes + root_id
+                count += 1
+            print(count)
+
+        return OBGraph(
+            node_lengths,
+            sequences,
+            edges,
+            node_to_ref_offset=node_to_ref_offset,
+            ref_offset_to_node=ref_to_node_offset,
+            chromosome_start_nodes=chromosome_start_nodes,
+            linear_ref_nodes_index=linear_ref_nodes_index,
+            linear_ref_nodes_and_dummy_nodes_index=linear_ref_nodes_and_dummy_nodes_index
+        )
+
+    cdef node_has_parent(self, node_id):
+        cdef uint32_t i
+        cdef uint32_t j
+        for i in range(self.data.nodes_len):
+            parent = self.data.nodes + i
+            for j in range(parent.edges_len):
+                if parent.edges[j] == node_id:
+                    return True
+        return False
 
     @staticmethod
     def from_gfa(filepath, encoding="ACGT", compress=True):
@@ -115,34 +199,32 @@ cdef class Graph:
         self.data.ToFile(fpath)
         free(fpath)
 
-    """
     @staticmethod
     def from_sequence_edge_lists(sequences, edges, encoding="ACGT", ref=None):
-    """
-    """
+        """
         Args:
             sequences: ["ACT", "G", "A", "GT"]
             edges: [[1, 2], [3], [3], []]
         List index determines a node's ID, and edges refer to what IDs are a node is connected to.
         Assumes the first node is the start node
-    """
-    """
+        """
         if not Graph.is_valid_encoding(encoding):
             return None
         g = Graph(encoding.encode('ASCII'))
-        cdef node *n
+        cdef cppnode *n
         cdef unsigned int node_count = len(sequences)
         cdef unsigned int i
-        g.data.nodes = <node *> malloc(node_count * sizeof(node))
+        g.data = new cppGraph(encoding.encode('ASCII'))
+        g.data.nodes = <cppnode *> malloc(node_count * sizeof(cppnode))
         g.data.nodes_len = node_count
         for i in range(node_count):
             n = g.data.nodes + i
-            Graph.init_node(n,
-                            strdup(sequences[i].encode('ASCII')),
-                            len(sequences[i]),
-                            edges[i],
-                            len(edges[i]),
-                            True)
+            g.init_node(n,
+                        strdup(sequences[i].encode('ASCII')),
+                        len(sequences[i]),
+                        edges[i],
+                        len(edges[i]),
+                        True)
         if ref is not None:
             for i in ref:
                 (g.data.nodes + i).reference = 1
@@ -150,17 +232,16 @@ cdef class Graph:
             for i in range(node_count):
                 (g.data.nodes + i).reference = 1
         return g
-    """
 
     @staticmethod
     def is_valid_encoding(encoding):
         if len(encoding) != 4:
-            raise "Graph encoding must be a permutation of ACGT."
+            raise "Graph encoding must be a permutation of ACGT (length was not 4)."
             return False
         encoding = encoding.upper()
         for i in "ACGT":
             if i not in encoding:
-                raise "Graph encoding must be a permutation of ACGT."
+                raise "Graph encoding must be a permutation of ACGT (did not include all characters)."
                 return False
         return True
 
@@ -184,3 +265,6 @@ cdef class Graph:
         del kf
         print("Done")
         return kmers, nodes
+
+def hash_kmer(kmer, k, encoding="ACGT"):
+    return hash_min_kmer_by_encoding(kmer.encode('ASCII'), k, encoding.encode('ASCII'))

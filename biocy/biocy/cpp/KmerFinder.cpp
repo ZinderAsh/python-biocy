@@ -2,6 +2,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stack>
+#include <vector>
+#include <algorithm>
+#include <cmath>
 
 #include "node.hpp"
 
@@ -14,23 +18,94 @@ KmerFinder::KmerFinder(Graph *graph, uint8_t k, uint8_t max_variant_nodes) : k(k
 	this->graph = graph;
 	kmer_mask = (1L << (k * 2)) - 1;
 	kmer_buffer_shift = (33 - k) * 2;
+	
 	found_kmers = NULL;
 	found_nodes = NULL;
+	found_node_sequence_start_positions = NULL;
+	found_node_sequence_kmer_positions = NULL;
+	save_sequence_start_positions = false;
+	save_sequence_kmer_positions = false;
+	
 	path_buffer = (uint32_t *) malloc(sizeof(uint32_t) * k * 4);
+	kmer_position_buffer = (uint16_t *) malloc(sizeof(uint16_t) * k * 4);
+	
+	filters = 0;
+	filter_node_id = 0;
 }
 
-void KmerFinder::Find() {
+void KmerFinder::Reset() {
 	path_buffer_len = 1;
 	variant_counter = 0;
 	if (found_kmers) free(found_kmers);
 	if (found_nodes) free(found_nodes);
+	if (found_node_sequence_start_positions) free(found_node_sequence_start_positions);
+	if (found_node_sequence_kmer_positions) free(found_node_sequence_kmer_positions);
+	found_count = 0;
+	found_len = 0;
+}
 
+void KmerFinder::InitializeFoundArrays() {	
 	// Start found arrays with node number of slots (they are resized automatically when necessary)
 	// This may be changed to be the length of the reference genome.
 	found_len = graph->nodes_len * 1;
 	found_kmers = (uint64_t *) malloc(found_len * sizeof(uint64_t));
 	found_nodes = (uint32_t *) malloc(found_len * sizeof(uint32_t));
-	found_count = 0;
+	if (save_sequence_start_positions) {
+		found_node_sequence_start_positions = (uint32_t *) malloc(found_len * sizeof(uint32_t));	
+	}
+	if (save_sequence_kmer_positions) {
+		found_node_sequence_kmer_positions = (uint16_t *) malloc(found_len * sizeof(uint16_t));	
+	}
+}
+
+void KmerFinder::FindKmersForVariant(uint32_t reference_node_id, uint32_t variant_node_id) {
+	Reset();
+
+	bool old_save_sequence_start_positions = save_sequence_start_positions;
+	bool old_save_sequence_kmer_positions = save_sequence_kmer_positions;
+	save_sequence_start_positions = true;
+	save_sequence_kmer_positions = true;
+
+	InitializeFoundArrays();
+
+	FindKmersSpanningNode(reference_node_id);
+	FindKmersSpanningNode(variant_node_id);
+
+	save_sequence_start_positions = old_save_sequence_start_positions;
+	save_sequence_kmer_positions = old_save_sequence_kmer_positions;
+}
+
+void KmerFinder::FindKmersSpanningNode(uint32_t center_node_id) {
+	SetFilter(FILTER_NODE_ID, center_node_id);
+
+	std::vector<uint32_t> visited;
+	std::stack<uint32_t> stack;
+	stack.push(center_node_id);
+
+	while (!stack.empty()) {
+		uint32_t node_id = stack.top();
+		stack.pop();
+		visited.push_back(node_id);
+		uint64_t local_found_count = FindKmersFromNode(node_id);
+
+		if (local_found_count == 0) continue;
+
+		struct node *node = graph->Get(node_id);
+		for (uint8_t i = 0; i < node->edges_in_len; i++) {
+			uint32_t edge_id = node->edges_in[i];
+			if (std::find(visited.begin(), visited.end(), edge_id) == visited.end()) {
+				stack.push(edge_id);
+			}
+		}
+	}
+
+	RemoveFilter(FILTER_NODE_ID);
+}
+
+void KmerFinder::Find() {
+	Reset();
+
+	InitializeFoundArrays();
 
 	for (uint32_t i = 0; i < graph->nodes_len; i++) {
 		if (graph->nodes[i].length != 0) FindKmersFromNode(i);
@@ -40,13 +115,23 @@ void KmerFinder::Find() {
 	}
 }
 
-void KmerFinder::AddNodeFoundKmer(uint32_t node_id, uint64_t kmer) {
+bool KmerFinder::AddNodeFoundKmer(uint32_t node_id, uint64_t kmer, uint32_t start_position, uint16_t node_kmer_position) {
+	// Check filters
+	if (filters & FILTER_NODE_ID && node_id != filter_node_id) return false;
 	// Resize found arrays if they are full
 	if (found_count == found_len) {
 		found_len *= 2;
 		// printf("Attempting to allocate %lld slots for results\n", found_len);
 		found_kmers = (uint64_t *) realloc(found_kmers, found_len * sizeof(uint64_t));
 		found_nodes = (uint32_t *) realloc(found_nodes, found_len * sizeof(uint32_t));
+		if (save_sequence_start_positions) {
+			found_node_sequence_start_positions =
+				(uint32_t *) realloc(found_node_sequence_start_positions, found_len * sizeof(uint32_t));	
+		}
+		if (save_sequence_kmer_positions) {
+			found_node_sequence_kmer_positions =
+				(uint16_t *) realloc(found_node_sequence_kmer_positions, found_len * sizeof(uint16_t));	
+		}
 		if (found_kmers == NULL || found_nodes == NULL) {
 			printf("Failed to reallocate result arrays\n");
 			exit(1);
@@ -54,7 +139,10 @@ void KmerFinder::AddNodeFoundKmer(uint32_t node_id, uint64_t kmer) {
 	}
 	found_kmers[found_count] = kmer;
 	found_nodes[found_count] = node_id;
+	if (save_sequence_start_positions) found_node_sequence_start_positions[found_count] = start_position;
+	if (save_sequence_kmer_positions) found_node_sequence_kmer_positions[found_count] = node_kmer_position;
 	found_count++;
+	return true;
 }
 
 void KmerFinder::ReverseFoundKmers() {
@@ -68,17 +156,20 @@ void KmerFinder::ReverseFoundKmers() {
 	}
 }
 
-void KmerFinder::FindKmersFromNode(uint32_t node_id) {
+uint64_t KmerFinder::FindKmersFromNode(uint32_t node_id) {
 	struct node *node = graph->nodes + node_id;
+
+	uint64_t local_found_count = 0;
 
 	// Ensure max variant nodes
 	if (!node->reference) {
-		if (variant_counter >= max_variant_nodes) return;
+		if (variant_counter >= max_variant_nodes) return local_found_count;
 		variant_counter++;
 	}
 
 	// Update lengths of buffers
 	path_buffer[0] = node_id;
+	kmer_position_buffer[0] = 0;
 
 	// Store the node's sequence in the buffer
 	kmer_buffer = node->sequences[0];
@@ -86,13 +177,19 @@ void KmerFinder::FindKmersFromNode(uint32_t node_id) {
 	uint8_t kmer_len = (k < node_len) ? k : node_len;
 	uint32_t sequence_idx = 1;
 	uint8_t sequence_pos = 0;
+	start_position = 0;
 
 	// If at least k bases are stored, iterate and index kmers
 	if (kmer_len == k) {
 		kmer_len--;
 		while (kmer_len < node_len) {
 			kmer_len++;
-			AddNodeFoundKmer(node_id, (kmer_buffer >> (64 - kmer_len * 2)) & kmer_mask);
+			local_found_count += AddNodeFoundKmer(
+					node_id,
+					(kmer_buffer >> (64 - kmer_len * 2)) & kmer_mask,
+					start_position,
+					0);
+			start_position++;
 			
 			// If the buffer is full, shift values as much as possible and fill with new values
 			if (kmer_len == 32 && sequence_idx < node->sequences_len) {
@@ -125,24 +222,29 @@ void KmerFinder::FindKmersFromNode(uint32_t node_id) {
 
 	// Visit all edges, remembering the current kmer buffer length
 	for (uint8_t i = 0; i < node->edges_len; i++) {
-		FindKmersExtendedByEdge(node->edges[i], kmer_len, 0);
+		local_found_count += FindKmersExtendedByEdge(node->edges[i], kmer_len, 0);
 	}
 
 	// Count down variant nodes when done with this node
 	if (!node->reference) variant_counter--;
+
+	return local_found_count;
 }
 
-void KmerFinder::FindKmersExtendedByEdge(uint32_t node_id, uint8_t kmer_len, uint8_t kmer_ext_len) {
+uint64_t KmerFinder::FindKmersExtendedByEdge(uint32_t node_id, uint8_t kmer_len, uint8_t kmer_ext_len) {
 	struct node *node = graph->nodes + node_id;
+
+	uint64_t local_found_count = 0;
 
 	// Ensure max_variant_nodes is adhered to
 	if (!node->reference) {
-		if (variant_counter >= max_variant_nodes) return;
+		if (variant_counter >= max_variant_nodes) return local_found_count;
 		variant_counter++;
 	}
 
 	// Update lengths and buffers
 	path_buffer[path_buffer_len] = node_id;
+	kmer_position_buffer[path_buffer_len] = kmer_len + kmer_ext_len;
 	path_buffer_len++;
 
 	if (node->sequences_len != 0) {
@@ -167,7 +269,22 @@ void KmerFinder::FindKmersExtendedByEdge(uint32_t node_id, uint8_t kmer_len, uin
 						(kmer_buffer_ext >> (64 - kmer_ext_len * 2))) & kmer_mask;
 				// Add the kmer to the found array for every node in the path
 				for (uint16_t i = 0; i < path_buffer_len; i++) {
-					AddNodeFoundKmer(path_buffer[i], kmer_hash);
+					uint16_t kmer_position = kmer_position_buffer[i];
+					if (i > 0 && kmer_ext_len > k - kmer_len) {
+						kmer_position -= kmer_ext_len + kmer_len - k;
+					}
+					uint32_t start_pos = 0;
+					if (i == 0) {
+						start_pos = start_position;
+						if (kmer_ext_len > k - kmer_len) {
+							start_pos += kmer_ext_len + kmer_len - k;
+						}
+					}
+					local_found_count += AddNodeFoundKmer(
+							path_buffer[i],
+							kmer_hash,
+							start_pos,
+							kmer_position);
 				}
 			}
 		} else {
@@ -177,12 +294,27 @@ void KmerFinder::FindKmersExtendedByEdge(uint32_t node_id, uint8_t kmer_len, uin
 
 	if (kmer_ext_len < k - 1) {
 		for (uint8_t i = 0; i < node->edges_len; i++) {
-			FindKmersExtendedByEdge(node->edges[i], kmer_len, kmer_ext_len);
+			local_found_count += FindKmersExtendedByEdge(node->edges[i], kmer_len, kmer_ext_len);
 		}
 	}
 
 	path_buffer_len--;
 	if (!node->reference) variant_counter--;
+
+	return local_found_count;
+}
+
+std::unordered_map<uint64_t, uint32_t> KmerFinder::CreateKmerIndex() {
+	std::unordered_map<uint64_t, uint32_t> index;
+	int64_t reserved_buckets = found_count / (128 / k);
+	//printf("Reserved: %ld\n", reserved_buckets);
+	index.reserve(reserved_buckets);
+
+	for (uint64_t i = 0; i < found_count; i++) {
+		index[found_kmers[i]] += 1;
+	}
+
+	return index;
 }
 
 uint64_t unique_kmer_list(uint64_t *kmers, uint64_t length) {
@@ -205,6 +337,7 @@ uint64_t unique_kmer_list(uint64_t *kmers, uint64_t length) {
 	return unique_kmers_len;
 }
 
+/*
 int main(int argc, char** argv) {
 	if (argc != 2) {
 		printf("This program requires one argument: A filename for an npz file.\n");
@@ -212,13 +345,27 @@ int main(int argc, char** argv) {
 	Graph *graph = Graph::FromGFAFile(argv[1]);
 	printf("%d nodes\n", graph->nodes_len);	
 
+	graph->Compress();
+	printf("%d nodes\n", graph->nodes_len);
+
 	KmerFinder *kf = new KmerFinder(graph, 31, 31);
 	kf->Find();
 	printf("Done. %ld kmers found\n", kf->found_count);
+	
+	auto kmer_index = kf->CreateKmerIndex();
+	printf("Kmer Count Size: %ld\n", kmer_index.size());
+	printf("Kmer Count Bucket Count: %ld\n", kmer_index.bucket_count());
+	
 	delete kf;
 
-	graph->Compress();
-	printf("%d nodes\n", graph->nodes_len);
+	//uint32_t empty_node_count = graph->AddEmptyNodes();
+	//printf("Added %u empty nodes.\n", empty_node_count);
+
+	//empty_node_count = graph->AddEmptyNodes();
+	//printf("Added another %u empty nodes.\n", empty_node_count);
+	
+	delete graph;
+	return 0;
 	graph->ToFile(argv[2]);
 	
 	kf = new KmerFinder(graph, 31, 31);
@@ -230,6 +377,4 @@ int main(int argc, char** argv) {
 	
 	return 0;
 }
-
-
-
+*/

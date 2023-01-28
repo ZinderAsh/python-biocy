@@ -31,9 +31,11 @@ void GFA::InitializeArrays() {
 	edges_in           = (uint32_t **) malloc(sizeof(uint32_t *) * node_count);
 	edges_out_lengths  = (uint8_t *) malloc(sizeof(uint8_t) * node_count);
 	edges_in_lengths   = (uint8_t *) malloc(sizeof(uint8_t) * node_count);
+	reference_indices  = (uint32_t *) malloc(sizeof(uint32_t) * node_count);
 	reference_nodes    = (bool *) malloc(sizeof(bool) * node_count);
 	id_map             = (uint32_t *) malloc(sizeof(uint32_t) * node_count);
 
+	memset(reference_indices, 0, sizeof(uint32_t) * node_count);
 	memset(reference_nodes, false, sizeof(uint8_t) * node_count);
 	memset(edges_in_lengths, 0, sizeof(uint8_t) * node_count);
 	memset(edges_out_lengths, 0, sizeof(uint8_t) * node_count);
@@ -107,8 +109,11 @@ void GFA::ReadReferenceNodes() {
 			fgetc(source_file);
 			while ((c = fgetc(source_file)) != '\t') {}
 			int64_t id;
-			while ((id = ReadNextID()) != -1)
+			uint32_t ref_index = 0;
+			while ((id = ReadNextID()) != -1) {
 				reference_nodes[id] = true;
+				reference_indices[id] = ref_index++;
+			}
 		} else {
 			newline = (c == '\n');
 		}

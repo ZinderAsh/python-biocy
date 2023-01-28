@@ -11,6 +11,7 @@ struct node {
 	uint32_t *edges_in;
 	uint8_t edges_len;
 	uint8_t edges_in_len;
+	uint32_t reference_index;
 	bool reference;
 };
 

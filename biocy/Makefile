@@ -95,14 +95,18 @@ Graph.o: biocy/cpp/Graph.cpp biocy/cpp/Graph.hpp biocy/cpp/node.hpp
 KmerFinder.o: biocy/cpp/KmerFinder.cpp biocy/cpp/KmerFinder.hpp Graph.o
 	gcc -lstdc++ -g -c -Wall -Wextra -o $@ $<
 
-GFA.o: biocy/cpp/GFA.cpp biocy/cpp/GFA.hpp biocy/cpp/utils.hpp
+GFA.o: biocy/cpp/GFA.cpp biocy/cpp/GFA.hpp biocy/cpp/hashing.o
 	gcc -lstdc++ -g -c -Wall -Wextra -o $@ $<
 
-utils.o: biocy/cpp/utils.cpp biocy/cpp/utils.hpp
+hashing.o: biocy/cpp/hashing.cpp biocy/cpp/hashing.hpp
 	gcc -lstdc++ -g -c -Wall -Wextra -o $@ $<
 
-kmer_finder: biocy/cpp/KmerFinder.cpp biocy/cpp/KmerFinder.hpp Graph.o GFA.o utils.o
-	gcc -lstdc++ -g -Wall -Wextra -o $@ $< GFA.o Graph.o utils.o -I.
+kmer_finder: biocy/cpp/KmerFinder.cpp biocy/cpp/KmerFinder.hpp Graph.o GFA.o hashing.o
+	gcc -lstdc++ -g -Wall -Wextra -lm -o $@ $< GFA.o Graph.o hashing.o -I.
 
 clean-c:
-	rm -f kmer_finder Graph.o KmerFinder.o GFA.o utils.o
+	rm -f kmer_finder Graph.o KmerFinder.o GFA.o hashing.o
+
+test_biocy: biocy/cpp/test_biocy.cpp Graph.o hashing.o KmerFinder.o GFA.o biocy/cpp/node.hpp biocy/cpp/doctest.h
+	gcc -lstdc++ -g -Wall -Wextra -lm -o $@ $< Graph.o GFA.o hashing.o KmerFinder.o -I.
+	./test_biocy

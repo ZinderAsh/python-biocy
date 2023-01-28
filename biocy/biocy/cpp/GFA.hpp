@@ -17,6 +17,7 @@ public:
 	uint32_t **edges_in;
 	uint8_t *edges_out_lengths;
 	uint8_t *edges_in_lengths;
+	uint32_t *reference_indices;
 	bool *reference_nodes;
 
 private:
@@ -52,6 +53,7 @@ public:
 		}
 		if (edges_out_lengths) free(edges_out_lengths);
 		if (edges_in_lengths) free(edges_in_lengths);
+		if (reference_indices) free(reference_indices);
 		if (reference_nodes) free(reference_nodes);
 		if (id_map) free(id_map);
 		free(filepath);
@@ -70,6 +72,7 @@ private:
 		edges_in = NULL;
 		edges_out_lengths = NULL;
 		edges_in_lengths = NULL;
+		reference_indices = NULL;
 		reference_nodes = NULL;
 		id_map = NULL;
 	}

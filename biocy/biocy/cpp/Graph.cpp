@@ -3,11 +3,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
+#include <queue>
+#include <vector>
 
 #include "GFA.hpp"
 
 #define LINE_BUF_LEN 1024
 #define DEFAULT_ENCODING "ACGT"
+
+struct queue_node {
+	uint32_t id;
+	uint32_t depth;
+
+	queue_node(uint32_t id, uint32_t depth)
+		: id(id), depth(depth) {}
+};
 
 Graph *Graph::FromGFAFile(char *filepath) {
 	return FromGFAFileEncoded(filepath, DEFAULT_ENCODING);
@@ -43,6 +53,7 @@ Graph *Graph::FromGFAFileEncoded(char *filepath, const char *encoding) {
 		for (uint8_t i = 0; i < node->edges_in_len; i++) {
 			node->edges_in[i] = gfa->edges_in[index][i];
 		}
+		node->reference_index = gfa->reference_indices[index];
 		node->reference = gfa->reference_nodes[index];
 	}
 
@@ -60,21 +71,18 @@ uint32_t *Graph::CreateCompressedIDMap(uint32_t *return_compressed_node_count) {
 
 	uint32_t compressed_node_count = 0;
 	for (uint32_t node_id = 0; node_id < nodes_len; node_id++) {
-		struct node *node = (nodes + node_id);
 		if (visited[node_id]) continue;
 		visited[node_id] = true;
 		id_map[node_id] = compressed_node_count;
-		if (node->reference) {
-			uint32_t edge_id = node_id;
-			struct node *edge = (nodes + edge_id);
-			while (edge->edges_len == 1) {
-				edge_id = edge->edges[0];
-				edge = (nodes + edge_id);
-				if (visited[edge_id] || !(edge->reference)) break;
-				if (edge->edges_in_len > 1) break;
-				id_map[edge_id] = compressed_node_count;
-				visited[edge_id] = true;
-			}
+		uint32_t edge_id = node_id;
+		struct node *edge = (nodes + edge_id);
+		while (edge->edges_len == 1) {
+			edge_id = edge->edges[0];
+			edge = (nodes + edge_id);
+			if (visited[edge_id]) break;
+			if (edge->edges_in_len > 1) break;
+			id_map[edge_id] = compressed_node_count;
+			visited[edge_id] = true;
 		}
 		compressed_node_count++;
 	}
@@ -115,77 +123,56 @@ void Graph::Compress() {
 		visited[node_id] = true;
 		struct node *node = (nodes + node_id);
 		struct node *compressed_node = (compressed_nodes + compressed_node_count);
-		if (node->reference) {
-			uint32_t node_length = node->length;
-			uint32_t edge_id = node_id;
-			struct node *edge = node;
-			while (edge->edges_len == 1) {
-				edge_id = edge->edges[0];
-				edge = (nodes + edge_id);
-				if (visited[edge_id] || !(edge->reference)) break;
-				if (edge->edges_in_len > 1) break;
-				node_length += edge->length;
-			}
-			if (node_length == 0) {
-				compressed_node->length = 0;
-				compressed_node->sequences = NULL;
-				compressed_node->sequences_len = 0;
-			} else {
-				compressed_node->length = node_length;
-				compressed_node->sequences_len = (31 + node_length) / 32;
-				compressed_node->sequences = (uint64_t *) malloc(sizeof(uint64_t) * compressed_node->sequences_len);
-				memset(compressed_node->sequences, 0, sizeof(uint64_t) * compressed_node->sequences_len);
-				compressed_node->sequences[0] = node->sequences[0];
-				node_length = node->length;
-				edge_id = node_id;
-				edge = node;
-				while (edge->edges_len == 1) {
-					uint32_t temp_edge_id = edge->edges[0];
-					struct node *temp_edge = (nodes + temp_edge_id);
-					if (visited[temp_edge_id] || !(temp_edge->reference)) break;
-					if (temp_edge->edges_in_len > 1) break;
-					edge_id = temp_edge_id;
-					edge = temp_edge;
-					if (node_length % 32 == 0) {
-						compressed_node->sequences[node_length / 32] = edge->sequences[0];
-						node_length += edge->length;
-					} else {
-						compressed_node->sequences[node_length / 32] |= (edge->sequences[0] >> ((node_length % 32) * 2));
-						uint32_t new_length = node_length + edge->length;
-						if (node_length / 32 < new_length / 32 && new_length % 32 != 0)
-							compressed_node->sequences[node_length / 32 + 1] = (edge->sequences[0] << ((31 - (node_length % 32)) * 2));
-						node_length = new_length;
-					}
-					visited[edge_id] = true;
-				}
-			}
-			compressed_node->edges_len = edge->edges_len;
-			if (compressed_node->edges_len == 0) {
-				compressed_node->edges = NULL;
-			} else {
-				compressed_node->edges = (uint32_t *) malloc(sizeof(uint32_t) * edge->edges_len);
-				for (uint8_t i = 0; i < compressed_node->edges_len; i++) {
-					compressed_node->edges[i] = id_map[edge->edges[i]];
-				}
-			}
+		uint32_t node_length = node->length;
+		uint32_t edge_id = node_id;
+		struct node *edge = node;
+		while (edge->edges_len == 1) {
+			edge_id = edge->edges[0];
+			edge = (nodes + edge_id);
+			if (visited[edge_id] /*|| !(edge->reference)*/) break;
+			if (edge->edges_in_len > 1) break;
+			node_length += edge->length;
+		}
+		if (node_length == 0) {
+			compressed_node->length = 0;
+			compressed_node->sequences = NULL;
+			compressed_node->sequences_len = 0;
 		} else {
-			compressed_node->length = node->length;
-			if (compressed_node->length > 0) {
-				compressed_node->sequences = (uint64_t *) malloc(sizeof(uint64_t));
-				compressed_node->sequences[0] = node->sequences[0];
-				compressed_node->sequences_len = 1;
-			} else {
-				compressed_node->sequences = 0;
-				compressed_node->sequences_len = 0;
-			}
-			compressed_node->edges_len = node->edges_len;
-			if (compressed_node->edges_len == 0) {
-				compressed_node->edges = NULL;
-			} else {
-				compressed_node->edges = (uint32_t *) malloc(sizeof(uint32_t) * node->edges_len);
-				for (uint8_t i = 0; i < node->edges_len; i++) {
-					compressed_node->edges[i] = id_map[node->edges[i]];
+			compressed_node->length = node_length;
+			compressed_node->sequences_len = (31 + node_length) / 32;
+			compressed_node->sequences = (uint64_t *) malloc(sizeof(uint64_t) * compressed_node->sequences_len);
+			memset(compressed_node->sequences, 0, sizeof(uint64_t) * compressed_node->sequences_len);
+			compressed_node->sequences[0] = node->sequences[0];
+			node_length = node->length;
+			edge_id = node_id;
+			edge = node;
+			while (edge->edges_len == 1) {
+				uint32_t temp_edge_id = edge->edges[0];
+				struct node *temp_edge = (nodes + temp_edge_id);
+				if (visited[temp_edge_id] /*|| !(temp_edge->reference)*/) break;
+				if (temp_edge->edges_in_len > 1) break;
+				edge_id = temp_edge_id;
+				edge = temp_edge;
+				if (node_length % 32 == 0) {
+					compressed_node->sequences[node_length / 32] = edge->sequences[0];
+					node_length += edge->length;
+				} else {
+					compressed_node->sequences[node_length / 32] |= (edge->sequences[0] >> ((node_length % 32) * 2));
+					uint32_t new_length = node_length + edge->length;
+					if (node_length / 32 < new_length / 32 && new_length % 32 != 0)
+						compressed_node->sequences[node_length / 32 + 1] = (edge->sequences[0] << ((31 - (node_length % 32)) * 2));
+					node_length = new_length;
 				}
+				visited[edge_id] = true;
+			}
+		}
+		compressed_node->edges_len = edge->edges_len;
+		if (compressed_node->edges_len == 0) {
+			compressed_node->edges = NULL;
+		} else {
+			compressed_node->edges = (uint32_t *) malloc(sizeof(uint32_t) * edge->edges_len);
+			for (uint8_t i = 0; i < compressed_node->edges_len; i++) {
+				compressed_node->edges[i] = id_map[edge->edges[i]];
 			}
 		}
 		compressed_node->edges_in_len = node->edges_in_len;
@@ -197,6 +184,7 @@ void Graph::Compress() {
 				compressed_node->edges_in[i] = id_map[node->edges_in[i]];
 			}
 		}
+		compressed_node->reference_index = node->reference_index;
 		compressed_node->reference = node->reference;
 
 		compressed_node_count++;
@@ -212,7 +200,464 @@ void Graph::Compress() {
 	nodes = compressed_nodes;
 	nodes_len = compressed_node_count;
 
+	uint32_t new_reference_index = 1;
+	uint32_t first_ref_node_id = GetReferenceNodeID(0);
+	struct node *ref_node = (nodes + first_ref_node_id);
+
+	while (true) {
+		uint32_t next_id = 0;
+		int64_t next_reference_index = -1;
+		for (uint8_t i = 0; i < ref_node->edges_len; i++) {
+			struct node *edge = (nodes + (ref_node->edges[i]));
+			if (edge->reference && (next_reference_index == -1 || edge->reference_index < next_reference_index)) {
+				next_id = ref_node->edges[i];
+				next_reference_index = edge->reference_index;
+			}
+		}
+		if (next_reference_index == -1) break;
+		ref_node = (nodes + next_id);
+		ref_node->reference_index = new_reference_index++;
+	}
+
 	free(id_map);
+}
+
+uint32_t Graph::AddNode(const char *sequence) {
+	nodes_len++;
+	nodes = (struct node *) realloc(nodes, sizeof(struct node) * nodes_len);
+	struct node *new_node = (nodes + nodes_len - 1);
+	new_node->length = strlen(sequence);
+	new_node->sequences_len = (new_node->length + 31) / 32;
+	if (new_node->sequences_len > 0) {
+		new_node->sequences = (uint64_t *) malloc(sizeof(uint64_t) * new_node->sequences_len);
+		for (uint8_t i = 0; i < new_node->sequences_len; i++) {
+			uint8_t hash_len = new_node->length - i * 32;
+			if (hash_len > 32) hash_len = 32;
+			const char *offset = sequence + (i * 32);
+			uint64_t hash = hash_max_kmer_by_map(offset, hash_len, encoding_map);
+			new_node->sequences[i] = hash;
+		}
+	} else {
+		new_node->sequences = NULL;
+	}
+	new_node->edges = NULL;
+	new_node->edges_in = NULL;
+	new_node->edges_len = 0;
+	new_node->edges_in_len = 0;
+	new_node->reference_index = 0;
+	new_node->reference = false;
+
+	return nodes_len - 1;
+}
+
+void Graph::AddEdge(uint32_t from_node_id, uint32_t to_node_id) {
+	struct node *from_node = (nodes + from_node_id);
+	struct node *to_node = (nodes + to_node_id);
+
+	from_node->edges_len++;
+	from_node->edges = (uint32_t *) realloc(from_node->edges, sizeof(uint32_t) * from_node->edges_len);
+	from_node->edges[from_node->edges_len - 1] = to_node_id;
+
+	to_node->edges_in_len++;
+	to_node->edges_in = (uint32_t *) realloc(to_node->edges_in, sizeof(uint32_t) * to_node->edges_in_len);
+	to_node->edges_in[to_node->edges_in_len - 1] = from_node_id;
+}
+
+uint32_t Graph::GetRequiredEmptyNodesFromNode(uint32_t from_node_id) {
+	struct node *from_node = (nodes + from_node_id);
+	
+	uint16_t nodes_required = 0;
+
+	for (uint8_t i = 0; i < from_node->edges_len; i++) {
+		struct node *edge = (nodes + from_node->edges[i]);
+		if (edge->edges_in_len > 1) {
+			//uint16_t nodes_required = GetRequiredEmptyNodesBetween(from_node_id, from_node->edges[i]);
+			nodes_required++;
+		}
+	}
+	
+	return nodes_required;
+}
+
+uint32_t Graph::GetRootNodeID() {
+	for (uint32_t i = 0; i < nodes_len; i++) {
+		if ((nodes + i)->edges_in_len == 0)
+			return i;
+	}
+	std::cout << "FATAL: Did not find a root node for the graph." << std::endl;
+	return 0;
+}
+
+uint32_t Graph::GetReferenceNodeID(uint32_t reference_index) {
+	for (uint32_t i = 0; i < nodes_len; i++) {
+		if ((nodes + i)->reference_index == 0)
+			return i;
+	}
+	std::cout << "FATAL: Did not find a reference node with index " << reference_index << " for the graph." << std::endl;
+	return 0;
+}
+
+uint32_t Graph::GetLastNodeID() {
+	for (uint32_t i = 0; i < nodes_len; i++) {
+		if ((nodes + i)->edges_len == 0)
+			return i;
+	}
+	std::cout << "FATAL: Did not find an end node for the graph." << std::endl;
+	return 0;
+}
+
+uint32_t Graph::GetNextReferenceNodeID(uint32_t previous_id) {
+	struct node *node = (nodes + previous_id);
+	if (!(node->reference)) {
+		std::cout << "FATAL: Can't get next reference node of non-reference node." << std::endl;
+		return 0;
+	}
+	uint32_t next_reference_index = node->reference_index + 1;
+	for (uint8_t i = 0; i < node->edges_len; i++) {
+		struct node *edge = (nodes + node->edges[i]);
+		if (edge->reference && edge->reference_index == next_reference_index) {
+			return node->edges[i];
+		}
+	}
+	std::cout << "FATAL: Did not find a next reference node." << std::endl;
+	return 0;
+}
+
+uint32_t Graph::GetRequiredEmptyNodeCount() {
+	uint32_t min_node_depth[nodes_len];
+	uint32_t max_node_depth[nodes_len];
+	for (uint32_t i = 0; i < nodes_len; i++) {
+		min_node_depth[i] = nodes_len;
+		max_node_depth[i] = 0;
+	}
+
+	uint32_t root_id = GetRootNodeID();
+	min_node_depth[root_id] = 0;
+	max_node_depth[root_id] = 0;
+
+	uint32_t stack[nodes_len];
+	uint32_t stack_len = 1;
+	stack[0] = root_id;
+	
+	while (stack_len > 0) {
+		uint32_t node_id = stack[--stack_len];
+		struct node *node = (nodes + node_id);
+		uint32_t min_depth = min_node_depth[node_id] + 1;
+		uint32_t max_depth = max_node_depth[node_id] + 1;
+		if (max_depth > nodes_len) {
+			std::cout << "ERROR: This graph has a cycle. Cannot add empty nodes." << std::endl;
+			return 0;
+		}
+		for (uint8_t i = 0; i < node->edges_len; i++) {
+			uint32_t edge_id = node->edges[i];
+			bool updated = false;
+			if (min_depth < min_node_depth[edge_id]) {
+				min_node_depth[edge_id] = min_depth;
+				updated = true;
+			}
+			if (max_depth > max_node_depth[edge_id]) {
+				max_node_depth[edge_id] = max_depth;
+				updated = true;
+			}
+			if (updated) stack[stack_len++] = edge_id;
+		}
+	}
+
+	uint32_t last_node = GetLastNodeID();
+	return max_node_depth[last_node] - min_node_depth[last_node];
+}
+
+bool Graph::NodeHasEdge(uint32_t node_id, uint32_t edge_id) {
+	struct node *node = (nodes + node_id);
+
+	for (uint8_t edge_idx = 0; edge_idx < node->edges_len; edge_idx++) {
+		if (node->edges[edge_idx] == edge_id)
+			return true;
+	}
+	return false;
+}
+
+void Graph::InitializeEmptyNode(uint32_t node_id) {
+	struct node *node = (nodes + node_id);
+	node->length = 0;
+	node->sequences_len = 0;
+	node->sequences = NULL;
+	node->edges = NULL;
+	node->edges_len = 0;
+	node->edges_in = NULL;
+	node->edges_in_len = 0;
+	node->reference_index = 0;
+	node->reference = false;
+}
+
+uint32_t Graph::CreateEmptyNodes() {
+	uint32_t node_depth[nodes_len];
+	uint32_t last_update_parent[nodes_len];
+	bool in_queue[nodes_len];
+	memset(node_depth, 0, sizeof(uint32_t) * nodes_len);
+	memset(last_update_parent, 0, sizeof(uint32_t) * nodes_len);
+	memset(in_queue, false, sizeof(bool) * nodes_len);
+
+	uint32_t root_id = GetRootNodeID();
+	uint32_t nodes_created = 0;
+
+	uint32_t more_than_1 = 0;
+
+	auto cmp = [&](uint32_t l, uint32_t r) { return node_depth[l] > node_depth[r]; };
+	std::priority_queue<uint32_t, std::vector<uint32_t>, decltype(cmp)> minq(cmp);
+	std::vector<uint32_t> tmpq;
+
+	minq.push(root_id);
+	in_queue[root_id] = true;
+	
+	while (!minq.empty()) {
+		uint32_t node_id = minq.top();
+		minq.pop();
+		in_queue[node_id] = false;
+		uint32_t depth = node_depth[node_id];
+		//std::cout << "Node: " << node_id << ", Depth: " << depth << std::endl;
+		struct node *node = (nodes + node_id);
+		if (depth > nodes_len) {
+			std::cout << "ERROR: This graph has a cycle. Cannot add empty nodes." << std::endl;
+			return 0;
+		}
+		for (uint8_t i = 0; i < node->edges_len; i++) {
+			uint32_t edge_id = node->edges[i];
+			bool updated = false;
+			uint32_t edge_depth = depth + 1;
+			if (node_depth[edge_id] == 0) {
+				// Depth has not been set yet
+				updated = true;
+			} else if (node_depth[edge_id] != edge_depth) {
+				int32_t diff = node_depth[edge_id] - edge_depth;
+				if (diff > 1 || diff < -1) more_than_1++;
+				if (node_depth[edge_id] < edge_depth) {
+					// Depth mismatch, need empty node between
+					struct node *edge = (nodes + edge_id);
+					bool found_empty_node = false;
+					for (uint8_t j = 0; j < edge->edges_in_len; j++) {
+						uint32_t in_edge_id = edge->edges_in[j];
+						struct node *in_edge = (nodes + in_edge_id);
+						if (in_edge->length == 0 && node_depth[in_edge_id] == depth + 1) {
+							found_empty_node = true;
+							break;
+						}
+					}
+					if (!found_empty_node) {
+						
+					}
+					
+					updated = true;
+				} else {
+					std::cout << "Test" << std::endl;
+				}
+			}
+			if (updated) {
+				last_update_parent[edge_id] = node_id;
+				if (in_queue[edge_id]) {
+					while (true) {
+						uint32_t tmp_node = minq.top();
+						minq.pop();
+						tmpq.push_back(tmp_node);
+						if (tmp_node == edge_id) break;
+					}
+					node_depth[edge_id] = edge_depth;
+					while (tmpq.size() > 0) {
+						minq.push(tmpq[tmpq.size() - 1]);
+						tmpq.pop_back();
+					}
+				} else {
+					node_depth[edge_id] = edge_depth;
+					minq.push(edge_id);
+					in_queue[edge_id] = true;
+				}
+			}
+		}
+	}
+
+	std::cout << more_than_1 << " cases of depth diff > 1" << std::endl;
+
+	return nodes_created;
+}
+
+/*
+bool Graph::ConnectToEmptyNode(uint32_t node_id, uint32_t edge_id) {
+	struct node *node = (nodes + node_id);
+	struct node *edge = (nodes + edge_id);
+	
+	uint32_t empty_node_id = 0;
+	struct node *empty_node = NULL;
+
+	// Check for an existing empty node
+	FOR (uint8_t edge_idx = 0; edge_idx < edge->in_edges_len; edge_idx++) {
+		if ((nodes + (edge->edges_in[edge_idx]))->length == 0) {
+			empty_node_id = edge->edges_in[edge_idx];
+			empty_node = (nodes + empty_node_id);
+			empty_node->edges = (uint32_t *) realloc(edges, sizeof(uint32_t) * (empty_node->edges_len++));
+			break;
+		}
+	}
+}
+
+uint32_t Graph::AddEmptyNodeBetween(uint32_t node_id, uint32_t edge_id) {
+	struct node *node = (nodes + node_id);
+	struct node *edge = (nodes + edge_id);
+	
+	uint32_t empty_node_id = 0;
+	struct node *empty_node = NULL;
+
+	// Check for an existing empty node
+	for (uint8_t edge_idx = 0; edge_idx < edge->in_edges_len; edge_idx++) {
+		if ((nodes + (edge->edges_in[edge_idx]))->length == 0) {
+			empty_node_id = edge->edges_in[edge_idx];
+			empty_node = (nodes + empty_node_id);
+			empty_node->edges = (uint32_t *) realloc(edges, sizeof(uint32_t) * (empty_node->edges_len++));
+			break;
+		}
+	}
+
+	// Create a new empty node
+	empty_node_id = nodes_len++;
+	empty_node = (nodes + empty_node_id);
+
+	InitializeEmptyNode(empty_node_id);
+
+	empty_node->edges[0] = edge_id;
+	empty_node->edges_in[0] = node_id;
+
+	for (uint8_t edge_idx = 0; edge_idx < node->edges_len; edge_idx++) {
+		if (node->edges[edge_idx] == edge_id) {
+			node->edges[edge_idx] = empty_node_idx;
+			break;
+		}
+	}
+	for (uint8_t edge_idx = 0; edge_idx < edge->edges_in_len; edge_idx++) {
+		if (node->edges_in[edge_idx] == node_id) {
+			node->edges_in[edge_idx] = empty_node_idx;
+			break;
+		}
+	}
+}
+
+uint32_t Graph::AddEmptyNodesForNode(uint32_t node_id) {
+	struct node *node = (nodes + node_id);
+
+	if (node->edges_len <= 1) return;
+
+	uint32_t nodes_added = 0;
+
+	for (uint8_t edge_idx = 0; edge_idx < node->edges_len; edge_idx++) {
+		struct node *edge = (nodes + node->edges[edge_idx]);
+		
+		if (edge->edges_in_len <= 1) continue;
+
+		for (uint8_t in_edge_idx = 0; in_edge_idx < edge->edges_in_len; in_edge_idx++) {
+			if (NodeHasEdge(node_id, edge->edges_in[in_edge_idx])) {
+				nodes_added += AddEmptyNodeBewteen(node_id, node->edges[edge_idx]);
+			}
+		}
+	}
+
+	return nodes_added;
+}
+*/
+
+uint32_t Graph::AppendEmptyNode() {
+	uint32_t new_node_id = nodes_len++;
+	nodes = (struct node *) realloc(nodes, sizeof(struct node) * nodes_len);
+	InitializeEmptyNode(new_node_id);
+	return new_node_id;
+}
+
+uint32_t Graph::AddEmptyNodes() {
+	/*
+	uint32_t empty_node_count = GetRequiredEmptyNodeCount();
+
+	if (empty_node_count == 0) {
+		std::cout << "There are no empty nodes to add to the graph." << std::endl;
+		return 0;
+	}
+
+	printf("Adding %u empty nodes\n", empty_node_count);
+
+	nodes = (struct node *) realloc(nodes, sizeof(struct node) * (nodes_len + empty_node_count));
+	
+	uint32_t real_added = CreateEmptyNodes();
+
+	printf("Actually added %u nodes\n", real_added);
+	*/
+
+	uint32_t empty_node_count = 0;
+
+	for (uint32_t node_id = 0; node_id < nodes_len; node_id++) {
+		struct node *node = (nodes + node_id);
+		if (!(node->reference)) continue;
+		for (uint8_t i = 0; i < node->edges_len; i++) {
+			uint32_t edge_id = node->edges[i];
+			struct node *edge = (nodes + edge_id);
+			if (edge->reference && edge->reference_index == node->reference_index + 2) {
+				uint32_t empty_node_id = AppendEmptyNode();
+				node = (nodes + node_id);
+				empty_node_count++;
+				MoveEdgesToIntermediateNode(node_id, edge_id, empty_node_id);
+			}
+		}
+	}
+
+	return empty_node_count;
+}
+
+void Graph::MoveEdgesToIntermediateNode(uint32_t from_node_id, uint32_t to_node_id, uint32_t mid_node_id) {
+	struct node *from_node = (nodes + from_node_id);
+	struct node *to_node = (nodes + to_node_id);
+	struct node *mid_node = (nodes + mid_node_id);
+	
+	int16_t from_node_edge_index = -1;
+	int16_t to_node_edge_index = -1;
+
+	for (uint8_t i = 0; i < from_node->edges_len; i++) {
+		if (from_node->edges[i] == to_node_id) {
+			from_node_edge_index = i;
+			break;
+		}
+	}
+
+	if (from_node_edge_index == -1) {
+		std::cout << "FATAL: Failed to find edge to the specified node." << std::endl;
+		return;
+	}
+
+	for (uint8_t i = 0; i < to_node->edges_in_len; i++) {
+		if (to_node->edges_in[i] == from_node_id) {
+			to_node_edge_index = i;
+			break;
+		}
+	}
+
+	if (to_node_edge_index == -1) {
+		std::cout << "FATAL: Failed to find edge from the specified node." << std::endl;
+		return;
+	}
+
+	from_node->edges[from_node_edge_index] = mid_node_id;
+	to_node->edges_in[to_node_edge_index] = mid_node_id;
+
+	mid_node->edges_len++;
+	mid_node->edges_in_len++;
+
+	if (mid_node->edges == NULL) {
+		mid_node->edges = (uint32_t *) malloc(sizeof(uint32_t) * mid_node->edges_len);
+	} else {
+		mid_node->edges = (uint32_t *) realloc(mid_node->edges, sizeof(uint32_t) * mid_node->edges_len);
+	}
+	mid_node->edges[mid_node->edges_len - 1] = to_node_id;
+
+	if (mid_node->edges_in == NULL) {
+		mid_node->edges_in = (uint32_t *) malloc(sizeof(uint32_t) * mid_node->edges_in_len);
+	} else {
+		mid_node->edges_in = (uint32_t *) realloc(mid_node->edges_in, sizeof(uint32_t) * mid_node->edges_in_len);
+	}
+	mid_node->edges_in[mid_node->edges_in_len - 1] = from_node_id;
 }
 
 Graph *Graph::FromFile(char *filepath) {

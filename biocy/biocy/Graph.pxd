@@ -23,3 +23,6 @@ cdef extern from "cpp/Graph.hpp":
         uint64_t HashMinKmer(char *, uint8_t)
         uint64_t HashMaxKmer(char *, uint8_t)
         uint64_t HashKmer(char *, uint8_t)
+        char *DecodeKmer(uint64_t, uint8_t)
+
+        uint32_t GetNextReferenceNodeID(uint32_t)

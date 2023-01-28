@@ -9,11 +9,12 @@ def hash_all(arr):
     if len(arr) == 0:
         return []
     k = len(arr[0])
-    return [hash_kmer(i.encode('ASCII'), k) for i in arr]
+    return [hash_kmer(i, k) for i in arr]
 
-def compare_kmer_node_lists(kmers_a, nodes_a, kmers_b, nodes_b, k):
-    #assert len(kmers_a) < 10000
-    #return
+def compare_kmer_node_lists(kmers_a, nodes_a, kmers_b, nodes_b, k, print_lists=False):
+    assert len(kmers_a) == len(kmers_b)
+    assert len(nodes_a) == len(nodes_b)
+    assert len(kmers_a) == len(nodes_a)
     counts_a = {}
     for i in range(len(kmers_a)):
         if kmers_a[i] not in counts_a:
@@ -32,16 +33,14 @@ def compare_kmer_node_lists(kmers_a, nodes_a, kmers_b, nodes_b, k):
         if a != b and a > 0:
             print(kmer_hash_to_sequence(i, k), a, b)
     # Print entire kmer lists
-    #for i in range(max(len(kmers_a), len(kmers_b))):
-    #    if i < len(kmers_a) and i < len(kmers_b):
-    #        print(f'{kmer_hash_to_sequence(kmers_a[i], k)}, {nodes_a[i]}\t{kmer_hash_to_sequence(kmers_b[i], k)}, {nodes_b[i]}')
-    #    elif i < len(kmers_a):
-    #        print(f'{kmer_hash_to_sequence(kmers_a[i], k)}, {nodes_a[i]}')
-    #    elif i < len(kmers_b):
-    #        print(f'{" " * k},  \t{kmer_hash_to_sequence(kmers_b[i], k)}, {nodes_b[i]}')
-    assert len(kmers_a) == len(kmers_b)
-    assert len(nodes_a) == len(nodes_b)
-    assert len(kmers_a) == len(nodes_a)
+    if print_lists:
+        for i in range(max(len(kmers_a), len(kmers_b))):
+            if i < len(kmers_a) and i < len(kmers_b):
+                print(f'{kmer_hash_to_sequence(kmers_a[i], k)}, {nodes_a[i]}\t{kmer_hash_to_sequence(kmers_b[i], k)}, {nodes_b[i]}')
+            elif i < len(kmers_a):
+                print(f'{kmer_hash_to_sequence(kmers_a[i], k)}, {nodes_a[i]}')
+            elif i < len(kmers_b):
+                print(f'{" " * k},  \t{kmer_hash_to_sequence(kmers_b[i], k)}, {nodes_b[i]}')
     for i in all_keys:
         assert counts_a[i] == counts_b[i]
 
@@ -79,7 +78,7 @@ def compare_kmer_node_lists(kmers_a, nodes_a, kmers_b, nodes_b, k):
             ])
 def test_kmer_index_against_kage(nodes, edges, ref, k, max_var):
     graph = Graph.from_sequence_edge_lists(nodes, edges, ref=ref)
-    res_kmers, res_nodes = graph.create_kmer_index(k, max_variant_nodes=max_var)
+    res_kmers, res_nodes = graph.create_kmer_index(k, max_variant_nodes=max_var, big_endian=False)
     ob_node_sequences = {}
     ob_edges = {}
     ob_linear_ref_nodes = []
@@ -148,16 +147,17 @@ def test_kmer_empty_nodes(nodes, edges, ref, k, max_var, expected_nodes, expecte
     res_kmers, res_nodes = graph.create_kmer_index(k, max_variant_nodes=max_var)
     compare_kmer_node_lists(res_kmers, res_nodes, expected_kmers, expected_nodes, k)
 
+@pytest.mark.slow
 @pytest.mark.parametrize("file,k,max_var", [
         ("tests/data/example_graph.npz", 4, 4),
-        #("tests/data/example_graph.npz", 6, 6),
-        #("tests/data/example_graph.npz", 8, 8),
-        #("tests/data/example_graph.npz", 12, 12),
-        #("tests/data/example_graph.npz", 16, 16),
-        #("tests/data/example_graph.npz", 24, 24),
-        #("tests/data/example_graph.npz", 31, 31)
+        ("tests/data/example_graph.npz", 6, 6),
+        ("tests/data/example_graph.npz", 8, 8),
+        ("tests/data/example_graph.npz", 12, 12),
+        ("tests/data/example_graph.npz", 16, 16),
+        ("tests/data/example_graph.npz", 24, 24),
+        ("tests/data/example_graph.npz", 31, 31)
     ])
-def test_obgraph(file, k, max_var):
+def test_obgraph_against_kafe_big_graph(file, k, max_var):
     obgraph = OBGraph.from_file(file)
     graph = Graph.from_obgraph(obgraph)
     res_kmers, res_nodes = graph.create_kmer_index(k, max_variant_nodes=max_var)
