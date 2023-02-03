@@ -10,24 +10,25 @@ cimport numpy as cnp
 from obgraph import Graph as OBGraph 
 from npstructures import RaggedArray
 
-from biocy.node cimport node as cppnode
-from biocy.Graph cimport Graph as cppGraph
-from biocy.KmerFinder cimport KmerFinder as cppKmerFinder
+cimport biocy.biocpp as cpp
 from biocy.hashing cimport pack_max_kmer_with_offset, decode_kmer_by_map, fill_map_by_encoding, hash_min_kmer_by_encoding
 
-cdef uint8_t get_node_base(cppnode *n, uint32_t index):
+cdef uint8_t get_node_base(cpp.node *n, uint32_t index):
     cdef uint32_t sequence_index = index // 32
     cdef uint8_t sub_index = index % 32
 
     return ((n.sequences[sequence_index]) >> ((31 - sub_index) * 2)) & 3
 
 cdef class Graph:
-    cdef cppGraph *data
+    cdef cpp.Graph *data
 
     def __cinit__(self):
         self.data = NULL
 
-    cdef void init_node(self, cppnode *n, sequence, uint32_t sequence_len, edges, uint8_t edges_len, is_ascii):
+    def __dealloc__(self):
+        del self.data
+
+    cdef void init_node(self, cpp.node *n, sequence, uint32_t sequence_len, edges, uint8_t edges_len, is_ascii):
         cdef char *ascii_seq
         cdef cnp.ndarray[char, ndim=1, mode="c"] numpy_seq
         cdef uint32_t i
@@ -53,19 +54,21 @@ cdef class Graph:
         n.edges = <uint32_t *> malloc(edges_len * sizeof(uint32_t))
         for i in range(edges_len):
             n.edges[i] = edges[i]
+        n.edges_in_len = 0
+        n.edges_in = <uint32_t *> malloc(0)
     
     @staticmethod
     def from_obgraph(obg, encoding="ACGT"):
         if not Graph.is_valid_encoding(encoding):
             return None
         g = Graph()
-        g.data = new cppGraph(encoding.encode('ASCII'))
-        cdef cppnode *n
+        g.data = new cpp.Graph(encoding.encode('ASCII'))
+        cdef cpp.node *n
         cdef uint32_t node_count = len(obg.nodes)
         cdef uint32_t i
         cdef uint32_t index
         cdef uint8_t byte
-        g.data.nodes = <cppnode *> malloc(node_count * sizeof(cppnode))
+        g.data.nodes = <cpp.node *> malloc(node_count * sizeof(cpp.node))
         g.data.nodes_len = node_count
         for i in range(node_count):
             n = g.data.nodes + i
@@ -86,12 +89,12 @@ cdef class Graph:
         return g
 
     def to_obgraph(self):
-        cdef cppnode *n
+        cdef cpp.node *n
         cdef uint32_t i
         cdef uint32_t j
         cdef uint64_t reference_length = 0
         cdef uint32_t root_id
-        cdef cppnode *root
+        cdef cpp.node *root
 
         node_count = self.data.nodes_len
 
@@ -174,7 +177,7 @@ cdef class Graph:
     def from_gfa(filepath, encoding="ACGT", compress=True):
         cdef char flags = 0
         cdef char *fpath = strdup(filepath.encode('ASCII'))
-        cdef cppGraph *cpp_graph = cppGraph.FromGFAFileEncoded(fpath, encoding.encode('ASCII'))
+        cdef cpp.Graph *cpp_graph = cpp.Graph.FromGFAFileEncoded(fpath, encoding.encode('ASCII'))
         if compress:
             cpp_graph.Compress()
         g = Graph()
@@ -185,7 +188,7 @@ cdef class Graph:
     @staticmethod
     def from_file(filepath):
         cdef char *fpath = strdup(filepath.encode('ASCII'))
-        cdef cppGraph *cpp_graph = cppGraph.FromFile(fpath)
+        cdef cpp.Graph *cpp_graph = cpp.Graph.FromFile(fpath)
         free(fpath)
         if cpp_graph == NULL:
             print("The specified file was of an invalid format.")
@@ -211,20 +214,23 @@ cdef class Graph:
         if not Graph.is_valid_encoding(encoding):
             return None
         g = Graph(encoding.encode('ASCII'))
-        cdef cppnode *n
+        cdef cpp.node *n
         cdef unsigned int node_count = len(sequences)
         cdef unsigned int i
-        g.data = new cppGraph(encoding.encode('ASCII'))
-        g.data.nodes = <cppnode *> malloc(node_count * sizeof(cppnode))
+        cdef char *sequence
+        g.data = new cpp.Graph(encoding.encode('ASCII'))
+        g.data.nodes = <cpp.node *> malloc(node_count * sizeof(cpp.node))
         g.data.nodes_len = node_count
         for i in range(node_count):
             n = g.data.nodes + i
+            sequence = strdup(sequences[i].encode('ASCII'))
             g.init_node(n,
-                        strdup(sequences[i].encode('ASCII')),
+                        sequence,
                         len(sequences[i]),
                         edges[i],
                         len(edges[i]),
                         True)
+            free(sequence)
         if ref is not None:
             for i in ref:
                 (g.data.nodes + i).reference = 1
@@ -244,27 +250,6 @@ cdef class Graph:
                 raise "Graph encoding must be a permutation of ACGT (did not include all characters)."
                 return False
         return True
-
-    def create_kmer_index(self, k, max_variant_nodes=31, big_endian=True):
-        if k < 1 or k > 31:
-            raise "create_kmer_index: k must be between 1 and 31 inclusive"
-        if max_variant_nodes <= 0 or max_variant_nodes > k:
-            max_variant_nodes = k
-        print("Finding kmers...")
-        cdef cppKmerFinder *kf = new cppKmerFinder(self.data, k, max_variant_nodes)
-        kf.Find()
-        if not big_endian:
-            kf.ReverseFoundKmers()
-        print("Copying to numpy arrays")
-        kmers = np.empty((kf.found_count,), dtype=np.ulonglong)
-        nodes = np.empty((kf.found_count,), dtype=np.uint32)
-        cdef cnp.ndarray[unsigned long long, ndim=1, mode="c"] c_kmers = kmers
-        cdef cnp.ndarray[unsigned int, ndim=1, mode="c"] c_nodes = nodes
-        memcpy(c_kmers.data, kf.found_kmers, sizeof(unsigned long long) * kf.found_count)
-        memcpy(c_nodes.data, kf.found_nodes, sizeof(unsigned int) * kf.found_count)
-        del kf
-        print("Done")
-        return kmers, nodes
 
 def hash_kmer(kmer, k, encoding="ACGT"):
     return hash_min_kmer_by_encoding(kmer.encode('ASCII'), k, encoding.encode('ASCII'))

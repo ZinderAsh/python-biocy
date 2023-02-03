@@ -19,9 +19,18 @@ requirements = ['cython', ]
 test_requirements = ['pytest>=3', ]
 
 extensions = [
-    Extension("Graph",
-              ["biocy/Graph.pyx", "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/hashing.cpp"],
+    Extension("biocy_core",
+              ["biocy/biocy_core.pyx",
+               "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/hashing.cpp"],
               include_dirs=[numpy.get_include()]),
+    #Extension("Graph",
+    #          ["biocy/Graph.pyx",
+    #           "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/hashing.cpp"],
+    #          include_dirs=[numpy.get_include()]),
+    #Extension("KmerFinder",
+    #          ["biocy/KmerFinder.pyx",
+    #           "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/hashing.cpp"],
+    #          include_dirs=[numpy.get_include()]),
 ]
 
 extensions = cythonize(extensions, annotate=True)

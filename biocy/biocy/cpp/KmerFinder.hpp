@@ -7,8 +7,9 @@
 #include <unordered_map>
 #include <vector>
 
-#define FILTER_NODE_ID 0b1
-#define FLAG_SAVE_WINDOWS 0b10000000
+#define FILTER_NODE_ID 1
+#define FLAG_ONLY_SAVE_INITIAL_NODE 1 << 6
+#define FLAG_SAVE_WINDOWS 1 << 7
 
 class VariantWindow;
 
