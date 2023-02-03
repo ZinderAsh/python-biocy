@@ -9,6 +9,71 @@
 #include "node.hpp"
 
 int main(int argc, char** argv) {
+	Graph *graph = new Graph("ACGT");
+
+	uint32_t node_0 = graph->AddNode("ACTGACTGACTG");
+	uint32_t node_1 = graph->AddNode("G");
+	uint32_t node_2 = graph->AddNode("");
+	uint32_t node_3 = graph->AddNode("AT");
+	uint32_t node_4 = graph->AddNode("AACTG");
+	uint32_t node_5 = graph->AddNode("CTA");
+	uint32_t node_6 = graph->AddNode("CTGCTTTTTTGTATA");
+
+	graph->Get(node_0)->reference = true;
+	graph->Get(node_1)->reference = true;
+	graph->Get(node_3)->reference = true;
+	graph->Get(node_4)->reference = true;
+	graph->Get(node_6)->reference = true;
+
+	graph->AddEdge(node_0, node_1);
+	graph->AddEdge(node_0, node_2);
+	graph->AddEdge(node_1, node_3);
+	graph->AddEdge(node_2, node_3);
+	graph->AddEdge(node_3, node_4);
+	graph->AddEdge(node_3, node_5);
+	graph->AddEdge(node_4, node_6);
+	graph->AddEdge(node_5, node_6);
+	
+	uint8_t k = 5;
+	KmerFinder *kf = new KmerFinder(graph, k, 31);
+	kf->Find();
+	auto windows = kf->FindWindowsForVariant(node_4, node_5);
+	VariantWindow *min_window = kf->FindRarestWindowForVariant(node_4, node_5);
+	kf->FindKmersForVariant(node_4, node_5);
+
+	/*
+	printf("window kmers\n");
+	for (uint64_t i = 0; i < kf->found_count; i++) {
+		uint64_t kmer_hash = kf->found_kmers[i];
+		char *kmer = graph->DecodeKmer(kmer_hash, k);
+		printf("%s: %2u %2u %2u %2u\n",
+				kmer,
+				kf->found_nodes[i],
+				kf->found_node_sequence_start_positions[i],
+				kf->found_node_sequence_kmer_positions[i],
+				index[kmer_hash]);
+		free(kmer);
+	}
+	*/
+
+	printf("variant windows\n");
+	for (uint32_t i = 0; i < windows.size(); i++) {
+		windows[i]->Print(kf);
+	}
+
+	printf("rarest window\n");
+	min_window->Print(kf);
+
+	for (uint32_t i = 0; i < windows.size(); i++) {
+		delete windows[i];
+	}
+	delete min_window;
+
+	delete kf;
+	delete graph;
+
+	return 0;
+	/*
 	if (argc != 2) {
 		printf("This program requires one argument: A filename for an npz file.\n");
 		return 1;
@@ -47,4 +112,5 @@ int main(int argc, char** argv) {
 	delete graph;
 	
 	return 0;
+	*/
 }

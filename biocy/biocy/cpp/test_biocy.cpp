@@ -4,11 +4,18 @@
 #include <stdint.h> 
 #include <string.h>
 #include <stdio.h>
+#include <unordered_map>
 
 #include "Graph.hpp"
 #include "hashing.hpp"
 #include "KmerFinder.hpp"
 #include "node.hpp"
+
+void fill_index(Graph *graph, std::unordered_map<uint64_t, uint32_t> *index, const char **kmers, const uint32_t *counts, uint32_t len) {
+	for (uint32_t i = 0; i < len; i++) {
+		(*index)[graph->HashMinKmer(kmers[i], strlen(kmers[i]))] = counts[i];
+	}
+}
 
 uint32_t count_kmer(KmerFinder *kf, const char *kmer) {
 	uint64_t kmer_hash = kf->graph->HashMinKmer(kmer, strlen(kmer));
@@ -260,3 +267,193 @@ TEST_CASE("Test small graph.") {
 
 	delete graph;
 }
+
+TEST_CASE("Test finding minimal variant windows.") {
+
+	SUBCASE("Variant and reference of equal length.") {
+		Graph *graph = new Graph("ACGT");
+
+		uint32_t node_0 = graph->AddNode("ACTGACTGACTG");
+		uint32_t node_1 = graph->AddNode("G");
+		uint32_t node_2 = graph->AddNode("T");
+		uint32_t node_3 = graph->AddNode("AT");
+		uint32_t node_4 = graph->AddNode("ACT");
+		uint32_t node_5 = graph->AddNode("CTA");
+		uint32_t node_6 = graph->AddNode("CTGCTTTTTTTT");
+
+		graph->Get(node_0)->reference = true;
+		graph->Get(node_1)->reference = true;
+		graph->Get(node_3)->reference = true;
+		graph->Get(node_4)->reference = true;
+		graph->Get(node_6)->reference = true;
+
+		graph->AddEdge(node_0, node_1);
+		graph->AddEdge(node_0, node_2);
+		graph->AddEdge(node_1, node_3);
+		graph->AddEdge(node_2, node_3);
+		graph->AddEdge(node_3, node_4);
+		graph->AddEdge(node_3, node_5);
+		graph->AddEdge(node_4, node_6);
+		graph->AddEdge(node_5, node_6);
+
+		REQUIRE(graph->nodes_len == 7);
+
+		std::unordered_map<uint64_t, uint32_t> index;
+
+		const char *kmers[] = {
+			"GGATA", "GTATA", "GGATC", "GTATC",
+			"GATAC", "TATAC", "GATCT", "TATCT",
+			"ATACT", "ATCTA",
+			"TACTC", "TCTAC",
+			"ACTCT", "CTACT",
+			"CTCTG", "TACTG",
+			"TCTGC", "ACTGC"
+		};
+		
+		SUBCASE("Test 1") {
+			const uint32_t counts[] = {
+				2, 4, 2, 3,
+				7, 7, 7, 7,
+				7, 7,
+				7, 7,
+				7, 7,
+				7, 7,
+				7, 7
+			};
+			fill_index(graph, &index, kmers, counts, 18);
+			KmerFinder *kf = new KmerFinder(graph, 5, 31);
+			kf->SetKmerFrequencyIndex(index);
+
+			VariantWindow *min_window = kf->FindRarestWindowForVariant(node_4, node_5);
+
+			CHECK(min_window->max_frequency == 7);
+			CHECK(min_window->reference_kmers_len == 2);
+			CHECK(min_window->variant_kmers_len == 2);
+			CHECK(min_window->reference_kmers[0] == graph->HashKmer("GGATA", 5));
+			CHECK(min_window->reference_kmers[1] == graph->HashKmer("GTATA", 5));
+			CHECK(min_window->variant_kmers[0] == graph->HashKmer("GGATC", 5));
+			CHECK(min_window->variant_kmers[1] == graph->HashKmer("GTATC", 5));
+
+			delete min_window;
+
+			delete kf;
+		}
+		
+		SUBCASE("Test 2") {
+			const uint32_t counts[] = {
+				2, 5, 2, 3,
+				7, 7, 7, 7,
+				7, 7,
+				7, 7,
+				4, 3,
+				7, 7,
+				7, 7
+			};
+			fill_index(graph, &index, kmers, counts, 18);
+			KmerFinder *kf = new KmerFinder(graph, 5, 31);
+			kf->SetKmerFrequencyIndex(index);
+
+			VariantWindow *min_window = kf->FindRarestWindowForVariant(node_4, node_5);
+
+			CHECK(min_window->max_frequency == 7);
+			CHECK(min_window->reference_kmers_len == 1);
+			CHECK(min_window->variant_kmers_len == 1);
+			CHECK(min_window->reference_kmers[0] == graph->HashKmer("ACTCT", 5));
+			CHECK(min_window->variant_kmers[0] == graph->HashKmer("CTACT", 5));
+
+			delete min_window;
+
+			delete kf;
+		}
+
+		delete graph;
+	}
+
+	SUBCASE("Variant and reference of different length.") {
+		Graph *graph = new Graph("ACGT");
+
+		uint32_t node_0 = graph->AddNode("ACTGACTGACTG");
+		uint32_t node_1 = graph->AddNode("G");
+		uint32_t node_2 = graph->AddNode("");
+		uint32_t node_3 = graph->AddNode("AT");
+		uint32_t node_4 = graph->AddNode("AACTG");
+		uint32_t node_5 = graph->AddNode("CTA");
+		uint32_t node_6 = graph->AddNode("CTGCTTTTTTTT");
+
+		graph->Get(node_0)->reference = true;
+		graph->Get(node_1)->reference = true;
+		graph->Get(node_3)->reference = true;
+		graph->Get(node_4)->reference = true;
+		graph->Get(node_6)->reference = true;
+
+		graph->AddEdge(node_0, node_1);
+		graph->AddEdge(node_0, node_2);
+		graph->AddEdge(node_1, node_3);
+		graph->AddEdge(node_2, node_3);
+		graph->AddEdge(node_3, node_4);
+		graph->AddEdge(node_3, node_5);
+		graph->AddEdge(node_4, node_6);
+		graph->AddEdge(node_5, node_6);
+
+		REQUIRE(graph->nodes_len == 7);
+
+		std::unordered_map<uint64_t, uint32_t> index;
+
+		const char *kmers[] = {
+			"GGATA", "TGATA", "GGATC", "TGATC",
+			"GATAA", "GATAA", "GATCT",
+			"ATAAC", "ATCTA",
+			"TAACT", "TCTAC",
+			"AACTG", "CTACT",
+			"ACTGC", "TACTG",
+			"CTGCT", "ACTGC",
+			"GCTGC", /*"ACTGC",*/
+			"TGCTG", /*"TACTG",*/
+			"CTGCT", /*"CTACT",*/
+			"ACTGC", /*"TCTAC",*/
+			"AACTG", /*"ATCTA",*/
+			"TAACT", /*"GATCT",*/
+			"ATAAC", /*"GGATC", "TGATC"*/
+		};
+		
+		SUBCASE("Test 1") {
+			const uint32_t counts[] = {
+				2, 4, 2, 3,
+				7, 7, 7,
+				7, 7,
+				7, 7,
+				7, 7,
+				7, 7,
+				7, 7,
+				7,
+				7,
+				7,
+				7,
+				7,
+				7,
+				7
+			};
+			fill_index(graph, &index, kmers, counts, 24);
+			KmerFinder *kf = new KmerFinder(graph, 5, 31);
+			kf->SetKmerFrequencyIndex(index);
+
+			VariantWindow *min_window = kf->FindRarestWindowForVariant(node_4, node_5);
+
+			CHECK(min_window->max_frequency == 7);
+			CHECK(min_window->reference_kmers_len == 2);
+			CHECK(min_window->variant_kmers_len == 2);
+			CHECK(min_window->reference_kmers[0] == graph->HashKmer("GGATA", 5));
+			CHECK(min_window->reference_kmers[1] == graph->HashKmer("TGATA", 5));
+			CHECK(min_window->variant_kmers[0] == graph->HashKmer("GGATC", 5));
+			CHECK(min_window->variant_kmers[1] == graph->HashKmer("TGATC", 5));
+
+			delete min_window;
+
+			delete kf;
+		}
+		
+	}
+}
+
+
+
