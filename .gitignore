@@ -133,3 +133,10 @@ dmypy.json
 *.txt
 *.o
 other/
+
+*.npy
+*.csv
+*.fa
+*.fa.fai
+*.vcf
+*.npz

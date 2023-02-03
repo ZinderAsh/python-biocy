@@ -109,3 +109,7 @@ biocy/*.so
 biocy/*.o
 biocy/*.html
 biocy/*.cpp
+biocy/example.py
+tests/test_biocy
+tests/data/*.bcg
+tests/data/*.npz
