@@ -91,7 +91,7 @@ std::vector<VariantWindow *> KmerFinder::FindWindowsForVariant(uint32_t referenc
 
 	KmerFinder *kf = new KmerFinder(graph, k, max_variant_nodes);
 	if (kmer_frequency_index.empty()) {
-		kmer_frequency_index = CreateKmerIndex();
+		kmer_frequency_index = CreateKmerFrequencyIndex();
 	}
 	kf->SetKmerFrequencyIndex(kmer_frequency_index);
 	kf->SetFilter(FLAG_SAVE_WINDOWS, true);
@@ -391,8 +391,10 @@ uint64_t KmerFinder::FindKmersExtendedByEdge(uint32_t node_id, uint8_t kmer_len,
 				// Combine the main buffer and extended buffer to form the final kmer
 				kmer_hash = ((kmer_buffer << kmer_ext_len * 2) |
 						(kmer_buffer_ext >> (64 - kmer_ext_len * 2))) & kmer_mask;
+				uint16_t nodes_to_save = path_buffer_len;
+				if (filters & FLAG_ONLY_SAVE_INITIAL_NODES) nodes_to_save = 1;
 				// Add the kmer to the found array for every node in the path
-				for (uint16_t i = 0; i < path_buffer_len; i++) {
+				for (uint16_t i = 0; i < nodes_to_save; i++) {
 					uint16_t kmer_position = kmer_position_buffer[i];
 					if (i > 0 && kmer_ext_len > k - kmer_len) {
 						kmer_position -= kmer_ext_len + kmer_len - k;
@@ -428,7 +430,7 @@ uint64_t KmerFinder::FindKmersExtendedByEdge(uint32_t node_id, uint8_t kmer_len,
 	return local_found_count;
 }
 
-std::unordered_map<uint64_t, uint32_t> KmerFinder::CreateKmerIndex() {
+std::unordered_map<uint64_t, uint32_t> KmerFinder::CreateKmerFrequencyIndex() {
 	std::unordered_map<uint64_t, uint32_t> index;
 	int64_t reserved_buckets = found_count / (128 / k);
 	//printf("Reserved: %ld\n", reserved_buckets);

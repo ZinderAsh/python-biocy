@@ -8,7 +8,7 @@
 #include <vector>
 
 #define FILTER_NODE_ID 1
-#define FLAG_ONLY_SAVE_INITIAL_NODE 1 << 6
+#define FLAG_ONLY_SAVE_INITIAL_NODES 1 << 6
 #define FLAG_SAVE_WINDOWS 1 << 7
 
 class VariantWindow;
@@ -80,7 +80,7 @@ public:
 	std::vector<VariantWindow *> FindWindowsForVariant(uint32_t reference_node_id, uint32_t variant_node_id);
 	VariantWindow *FindRarestWindowForVariant(uint32_t reference_node_id, uint32_t variant_node_id);
 	void ReverseFoundKmers();
-	std::unordered_map<uint64_t, uint32_t> CreateKmerIndex();
+	std::unordered_map<uint64_t, uint32_t> CreateKmerFrequencyIndex();
 	
 	void SetFilter(uint8_t filter, uint64_t value) {
 		filters |= filter;
@@ -100,6 +100,9 @@ public:
 	}
 	void SetKmerFrequencyIndex(std::unordered_map<uint64_t, uint32_t> index) {
 		kmer_frequency_index = index;
+	}
+	bool HasKmerFrequencyIndex() {
+		return !kmer_frequency_index.empty();
 	}
 
 private:
@@ -130,6 +133,18 @@ public:
 		free(reference_kmers);
 		free(variant_kmers);
 	}
+
+	/*
+	void ReverseKmers() {	
+		for (uint64_t i = 0; i < reference_kmers_len; i++) {
+			uint64_t reverse = 0;
+			uint64_t kmer = reference_kmers[i];
+			for (uint8_t j = 0; j < k; j++) {
+				reverse |= ((kmer >> ((k - j - 1) * 2)) & 3L) << (j * 2);
+			}
+			found_kmers[i] = reverse;
+		}
+	}*/
 
 	void Print() {
 		printf("Ref:");

@@ -43,8 +43,15 @@ cdef extern from "cpp/Graph.hpp":
 
 cdef extern from "cpp/KmerFinder.hpp":
     enum: FILTER_NODE_ID
-    enum: FLAG_ONLY_SAVE_INITIAL_NODE
+    enum: FLAG_ONLY_SAVE_INITIAL_NODES
     enum: FLAG_SAVE_WINDOWS
+
+    cdef cppclass VariantWindow:
+        uint64_t *reference_kmers;
+        uint64_t *variant_kmers;
+        uint8_t reference_kmers_len;
+        uint8_t variant_kmers_len;
+        uint32_t max_frequency;
 
     cdef cppclass KmerFinder:
         KmerFinder(Graph *, uint8_t, uint8_t) except +
@@ -61,5 +68,9 @@ cdef extern from "cpp/KmerFinder.hpp":
         void SetFilter(uint8_t, uint64_t)
         void RemoveFilter(uint8_t)
         void SetFlag(uint8_t, bool)
-        
+       
+        unordered_map[uint64_t, uint32_t] CreateKmerFrequencyIndex()
         void SetKmerFrequencyIndex(unordered_map[uint64_t, uint32_t])
+        bool HasKmerFrequencyIndex()
+
+        VariantWindow *FindRarestWindowForVariant(uint32_t reference_node_id, uint32_t variant_node_id)

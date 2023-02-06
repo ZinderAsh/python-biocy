@@ -253,16 +253,33 @@ TEST_CASE("Test small graph.") {
 		delete kf;
 	}
 
-	SUBCASE("Test kmer index for k = 4") {
+	SUBCASE("Test kmer frequency index for k = 4") {
 		KmerFinder *kf = new KmerFinder(graph, 4, 31);
 		kf->Find();
-		auto kmer_index = kf->CreateKmerIndex();
+		auto kmer_index = kf->CreateKmerFrequencyIndex();
 
 		CHECK(kmer_index[graph->HashKmer("ACTG", 4)] == 5);
 		CHECK(kmer_index[graph->HashKmer("CTGG", 4)] == 2);
 		CHECK(kmer_index[graph->HashKmer("ATAC", 4)] == 2);
 		CHECK(kmer_index[graph->HashKmer("AAAA", 4)] == 0);
 		CHECK(kmer_index[graph->HashKmer("CTGC", 4)] == 1);
+
+		delete kf;
+	}
+
+	SUBCASE("Test kmer frequency index for k = 4 with only initial nodes") {
+		KmerFinder *kf = new KmerFinder(graph, 4, 31);
+		kf->SetFlag(FLAG_ONLY_SAVE_INITIAL_NODES, true);
+		kf->Find();
+		auto kmer_index = kf->CreateKmerFrequencyIndex();
+
+		CHECK(kmer_index[graph->HashKmer("ACTG", 4)] == 4);
+		CHECK(kmer_index[graph->HashKmer("CTGG", 4)] == 1);
+		CHECK(kmer_index[graph->HashKmer("ATAC", 4)] == 1);
+		CHECK(kmer_index[graph->HashKmer("AAAA", 4)] == 0);
+		CHECK(kmer_index[graph->HashKmer("CTGC", 4)] == 1);
+
+		delete kf;
 	}
 
 	delete graph;
