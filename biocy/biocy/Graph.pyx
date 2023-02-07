@@ -55,7 +55,7 @@ cdef class Graph:
         for i in range(edges_len):
             n.edges[i] = edges[i]
         n.edges_in_len = 0
-        n.edges_in = <uint32_t *> malloc(0)
+        n.edges_in = NULL
     
     @staticmethod
     def from_obgraph(obg, encoding="ACGT"):
@@ -65,7 +65,10 @@ cdef class Graph:
         g.data = new cpp.Graph(encoding.encode('ASCII'))
         cdef cpp.node *n
         cdef uint32_t node_count = len(obg.nodes)
+        cdef uint32_t edge_count
+        cdef uint32_t edge_id
         cdef uint32_t i
+        cdef uint32_t j
         cdef uint32_t index
         cdef uint8_t byte
         g.data.nodes = <cpp.node *> malloc(node_count * sizeof(cpp.node))
@@ -78,10 +81,7 @@ cdef class Graph:
                         obg.edges[i],
                         obg.edges[i].shape[0],
                         False)
-        #ref = obg.linear_ref_nodes()
-        #for i, index in enumerate(ref):
-        #    (g.data.nodes + index).reference = 1
-        #    (g.data.nodes + index).reference_index = i
+        g.data.AddInEdges()
         ref = obg.linear_ref_nodes_and_dummy_nodes_index
         for i, byte in enumerate(ref):
             (g.data.nodes + i).reference = byte
@@ -231,6 +231,7 @@ cdef class Graph:
                         len(edges[i]),
                         True)
             free(sequence)
+        g.data.AddInEdges()
         if ref is not None:
             for i in ref:
                 (g.data.nodes + i).reference = 1

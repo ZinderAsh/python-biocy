@@ -33,6 +33,19 @@ int main(int argc, char** argv) {
 	graph->AddEdge(node_3, node_5);
 	graph->AddEdge(node_4, node_6);
 	graph->AddEdge(node_5, node_6);
+
+	graph->AddInEdges();
+
+	for (uint32_t i = 0; i < graph->nodes_len; i++) {
+		printf("nodes_in:");
+		struct node *n = graph->Get(i);
+		for (uint8_t j = 0; j < n->edges_in_len; j++) {
+			printf(" %u", n->edges_in[j]);
+		}
+		printf("\n");
+	}
+
+	return 0;
 	
 	uint8_t k = 5;
 	KmerFinder *kf = new KmerFinder(graph, k, 31);

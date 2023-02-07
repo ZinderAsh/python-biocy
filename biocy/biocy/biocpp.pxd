@@ -39,6 +39,8 @@ cdef extern from "cpp/Graph.hpp":
         uint64_t HashKmer(char *, uint8_t)
         char *DecodeKmer(uint64_t, uint8_t)
 
+        void AddInEdges()
+
         uint32_t GetNextReferenceNodeID(uint32_t)
 
 cdef extern from "cpp/KmerFinder.hpp":
@@ -53,6 +55,8 @@ cdef extern from "cpp/KmerFinder.hpp":
         uint8_t variant_kmers_len;
         uint32_t max_frequency;
 
+        void ReverseKmers(uint8_t k)
+
     cdef cppclass KmerFinder:
         KmerFinder(Graph *, uint8_t, uint8_t) except +
         Graph *graph
@@ -63,8 +67,8 @@ cdef extern from "cpp/KmerFinder.hpp":
         uint64_t found_count
 
         void Find()
-        void ReverseFoundKmers()
-        
+        void ReverseFoundKmers() 
+
         void SetFilter(uint8_t, uint64_t)
         void RemoveFilter(uint8_t)
         void SetFlag(uint8_t, bool)

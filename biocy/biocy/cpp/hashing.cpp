@@ -84,3 +84,11 @@ uint64_t pack_max_kmer_with_offset(char *arr, uint32_t offset, uint8_t k) {
 	return pack_max_kmer(arr + offset, k);
 }
 
+uint64_t reverse_kmer(uint64_t hash, uint8_t k) {
+	uint64_t reverse = 0;
+	for (uint8_t i = 0; i < k; i++) {
+		reverse |= ((hash >> ((k - i - 1) * 2)) & 3L) << (i * 2);
+	}
+	return reverse;
+}
+

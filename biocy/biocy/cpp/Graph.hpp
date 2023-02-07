@@ -48,6 +48,32 @@ public:
 	void Compress();
 	uint32_t AddEmptyNodes();
 
+	void AddInEdges() {
+		struct node *nodes_end = nodes + nodes_len;
+		struct node *n;
+		uint8_t edge_index;
+		for (n = nodes; n < nodes_end; n++) {
+			if (n->edges_in) free(n->edges_in);
+			n->edges_in_len = 0;
+		}
+		for (n = nodes; n < nodes_end; n++) {
+			for (edge_index = 0; edge_index < n->edges_len; edge_index++) {
+				(nodes + n->edges[edge_index])->edges_in_len++;
+			}
+		}
+		for (n = nodes; n < nodes_end; n++) {
+			n->edges_in = (uint32_t *) malloc(sizeof(uint32_t) * n->edges_in_len);
+			n->edges_in_len = 0;
+		}
+		for (uint32_t i = 0; i < nodes_len; i++) {
+			n = nodes + i;
+			for (edge_index = 0; edge_index < n->edges_len; edge_index++) {
+				struct node *in_node = nodes + n->edges[edge_index];
+				in_node->edges_in[in_node->edges_in_len++] = i;
+			}
+		}
+	}
+
 	void ToFile(char *filepath);
 
 	uint64_t HashMinKmer(const char *str, uint8_t k) {

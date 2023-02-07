@@ -6,8 +6,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "node.hpp"
-
 void add_found(struct kmer_finder *kf, unsigned long node_id, unsigned long long kmer);
 void get_kmers(struct kmer_finder *kf, unsigned long node_id);
 void get_kmers_recursive(struct kmer_finder *kf, unsigned long node_id, unsigned char kmer_len, unsigned char kmer_ext_len);
@@ -271,12 +269,7 @@ bool KmerFinder::AddNodeFoundKmer(uint32_t node_id, uint64_t kmer, uint32_t star
 
 void KmerFinder::ReverseFoundKmers() {
 	for (uint64_t i = 0; i < found_count; i++) {
-		uint64_t reverse = 0;
-		uint64_t kmer = found_kmers[i];
-		for (uint8_t j = 0; j < k; j++) {
-			reverse |= ((kmer >> ((k - j - 1) * 2)) & 3L) << (j * 2);
-		}
-		found_kmers[i] = reverse;
+		found_kmers[i] = reverse_kmer(found_kmers[i], k);
 	}
 }
 

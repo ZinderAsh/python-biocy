@@ -2,6 +2,7 @@
 #define KMER_FINDER_H
 
 #include "Graph.hpp"
+#include "node.hpp"
 #include <stdint.h>
 #include <stdio.h>
 #include <unordered_map>
@@ -81,7 +82,7 @@ public:
 	VariantWindow *FindRarestWindowForVariant(uint32_t reference_node_id, uint32_t variant_node_id);
 	void ReverseFoundKmers();
 	std::unordered_map<uint64_t, uint32_t> CreateKmerFrequencyIndex();
-	
+
 	void SetFilter(uint8_t filter, uint64_t value) {
 		filters |= filter;
 		switch (filter) {
@@ -134,17 +135,12 @@ public:
 		free(variant_kmers);
 	}
 
-	/*
-	void ReverseKmers() {	
-		for (uint64_t i = 0; i < reference_kmers_len; i++) {
-			uint64_t reverse = 0;
-			uint64_t kmer = reference_kmers[i];
-			for (uint8_t j = 0; j < k; j++) {
-				reverse |= ((kmer >> ((k - j - 1) * 2)) & 3L) << (j * 2);
-			}
-			found_kmers[i] = reverse;
-		}
-	}*/
+	void ReverseKmers(uint8_t k) {	
+		for (uint64_t i = 0; i < reference_kmers_len; i++)
+			reference_kmers[i] = reverse_kmer(reference_kmers[i], k);
+		for (uint64_t i = 0; i < variant_kmers_len; i++)
+			variant_kmers[i] = reverse_kmer(variant_kmers[i], k);
+	}
 
 	void Print() {
 		printf("Ref:");

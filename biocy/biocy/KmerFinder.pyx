@@ -60,6 +60,9 @@ cdef class KmerFinder:
         for i in range(pair_count):
             window = kf.FindRarestWindowForVariant(reference_node_ids[i], variant_node_ids[i])
 
+            if reverse_kmers:
+                window.ReverseKmers(kf.k)
+
             reference_kmer_lens[i] = window.reference_kmers_len
             variant_kmer_lens[i] = window.variant_kmers_len
 
