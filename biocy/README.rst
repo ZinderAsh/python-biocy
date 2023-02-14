@@ -15,30 +15,47 @@ This project aims to create a high-performance cython-based python module for cr
 * Python
 * Cython
 * PyTest (for running tests)
+* npstructures
+
+#### Optional Dependencies
+
+* obgraph
 
 ### Setup
 
 * Clone the repository: `git clone https://github.com/ZinderAsh/masters-project-genotyping.git`
 * cd into the directory: `cd masters-project-genotyping`
-* Run `make` inside the folder
+* Run `pip install .` inside the folder
 
 ### Usage
 
-* Run `python example.py` for an example output.
 * Run `pytest` to perform the tests ensuring that everything is working correctly.
-* To use in a separate Python program:
+* To use in a separate Python program (example using obgraph):
 ```python
-from Graph import Graph
+from biocy import Graph, KmerFinder
+from obgraph import Graph as OBGraph
 
-graph = Graph.from_sequence_edge_lists(
-	["ACT", "TGA"], # List of all nodes to be in the graph
-	[[1], []]) # Indexes of nodes each node is connected to
+# Read graph from obgraph file
+obgraph = OBGraph.from_file("directory/obgraph.npz")
+graph = Graph.from_obgraph(obgraph)
 
-graph.print_graph() # The graph can be visualized
+# Write graph to biocy graph file
+graph.to_file("directory/bcgraph.bcg")
 
-index = graph.create_kmer_index(3) # Takes k for k-mer length as parameter
+# Read graph from biocy graph file
+graph = Graph.from_file("directory/bcgraph.bcg")
 
-print(index[b'ACT']) # Index dictionary uses bytestrings as keys
+# Find all kmers and the nodes they include
+k = 5
+kmer_finder = KmerFinder(graph, k)
+kmers, nodes = kmer_finder.find()
+
+# Find identifying windows for variants
+# reverse_kmers specify if the kmers should be mirrored before returning
+k = 5
+kmer_finder = KmerFinder(graph, k)
+ref, var = kmer_finder.find_identifying_windows_for_variants([1, 3, 5, 7, 9], [2, 4, 6, 8, 10], reverse_kmers=True)
+
 ```
 
 Credits
