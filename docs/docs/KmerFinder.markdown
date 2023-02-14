@@ -1,5 +1,5 @@
 ---
-layout: page
+layout: default
 title: Biocy - KmerFinder
 permalink: /docs/KmerFinder/
 ---
