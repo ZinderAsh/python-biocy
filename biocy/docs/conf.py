@@ -158,5 +158,5 @@ texinfo_documents = [
      'Miscellaneous'),
 ]
 
-
+autodoc_mock_imports = ["biocy_core"]
 
