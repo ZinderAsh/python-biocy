@@ -32,7 +32,7 @@ cdef class KmerFinder:
         print("Done")
         return kmers, nodes
 
-    def find_identifying_windows_for_variants(self, reference_node_ids, variant_node_ids, reverse_kmers=False):
+    def find_identifying_windows_for_variants(self, reference_node_ids, variant_node_ids, max_variant_nodes=100, reverse_kmers=False):
         if len(reference_node_ids) != len(variant_node_ids):
             raise "find_identifying_windows_for_variants: reference_node_ids and variant_node_ids must have the same length."
         cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, self.max_variant_nodes)
@@ -57,9 +57,12 @@ cdef class KmerFinder:
         variant_kmers = np.empty((pair_count,), dtype=np.ulonglong)
         reference_kmer_lens = np.empty((pair_count,), dtype=np.uint32)
         variant_kmer_lens = np.empty((pair_count,), dtype=np.uint32)
-        for i in range(pair_count):
-            window = kf.FindRarestWindowForVariant(reference_node_ids[i], variant_node_ids[i])
+        
+        cdef cpp.KmerFinder *window_finder = kf.CreateWindowFinder()
 
+        for i in range(pair_count):
+            window = kf.FindRarestWindowForVariantWithFinder(reference_node_ids[i], variant_node_ids[i], window_finder)
+            
             if reverse_kmers:
                 window.ReverseKmers(kf.k)
 
@@ -82,13 +85,14 @@ cdef class KmerFinder:
             for j in range(window.variant_kmers_len):
                 variant_kmers[variant_kmer_index] = window.variant_kmers[j]
                 variant_kmer_index += 1
-
+            
             del window
 
         del kf
-
+        
         reference_kmers = RaggedArray(reference_kmers, shape=reference_kmer_lens, dtype=np.uint64)
         variant_kmers = RaggedArray(variant_kmers, shape=variant_kmer_lens, dtype=np.uint64)
+        
 
         return reference_kmers, variant_kmers
 

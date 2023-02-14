@@ -7,7 +7,6 @@ from libc.stdint cimport uint8_t, uint32_t, uint64_t
 from cpython cimport array
 import numpy as np
 cimport numpy as cnp
-from obgraph import Graph as OBGraph 
 from npstructures import RaggedArray
 
 cimport biocy.biocpp as cpp
@@ -59,6 +58,8 @@ cdef class Graph:
     
     @staticmethod
     def from_obgraph(obg, encoding="ACGT"):
+        if not has_obgraph:
+            raise Exception("Graph.from_obgraph requires the 'obgraph' module to function.")
         if not Graph.is_valid_encoding(encoding):
             return None
         g = Graph()
@@ -89,6 +90,8 @@ cdef class Graph:
         return g
 
     def to_obgraph(self):
+        if not has_obgraph:
+            raise Exception("Graph.to_obgraph requires the 'obgraph' module to function.")
         cdef cpp.node *n
         cdef uint32_t i
         cdef uint32_t j
@@ -152,7 +155,7 @@ cdef class Graph:
                 count += 1
             print(count)
 
-        return OBGraph(
+        return ob.Graph(
             node_lengths,
             sequences,
             edges,
@@ -201,6 +204,23 @@ cdef class Graph:
         cdef char *fpath = strdup(filepath.encode('ASCII'))
         self.data.ToFile(fpath)
         free(fpath)
+
+    def print_node_data(self, node_id):
+        cdef uint32_t i = node_id
+        cdef uint8_t j
+        cdef cpp.node *n = self.data.nodes + i
+        output = "Node ID: " + str(node_id)
+        output += "\nLength: " + str(n.length)
+        output += "\nEdges Out Len: " + str(n.edges_len)
+        output += "\nEdges Out:"
+        for j in range(n.edges_len):
+            output += " " + str(n.edges[j])
+        output += "\nEdges In Len: " + str(n.edges_in_len)
+        output += "\nEdges In:"
+        for j in range(n.edges_in_len):
+            output += " " + str(n.edges_in[j])
+        print(output)
+
 
     @staticmethod
     def from_sequence_edge_lists(sequences, edges, encoding="ACGT", ref=None):

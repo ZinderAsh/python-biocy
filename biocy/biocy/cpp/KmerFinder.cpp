@@ -61,16 +61,17 @@ void KmerFinder::InitializeFoundArrays() {
 		found_kmers = (uint64_t *) malloc(found_len * sizeof(uint64_t));
 		found_nodes = (uint32_t *) malloc(found_len * sizeof(uint32_t));
 		if (save_sequence_start_positions) {
-			found_node_sequence_start_positions = (uint32_t *) malloc(found_len * sizeof(uint32_t));	
+			found_node_sequence_start_positions = (uint32_t *) malloc(found_len * sizeof(uint32_t));
 		}
 		if (save_sequence_kmer_positions) {
-			found_node_sequence_kmer_positions = (uint16_t *) malloc(found_len * sizeof(uint16_t));	
+			found_node_sequence_kmer_positions = (uint16_t *) malloc(found_len * sizeof(uint16_t));
 		}
 	}
 }
 
-VariantWindow *KmerFinder::FindRarestWindowForVariant(uint32_t reference_node_id, uint32_t variant_node_id) {
-	auto windows = FindWindowsForVariant(reference_node_id, variant_node_id);
+VariantWindow *KmerFinder::FindRarestWindowForVariantWithFinder(
+		uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
+	auto windows = FindWindowsForVariantWithFinder(reference_node_id, variant_node_id, kf);
 	uint32_t min_frequency = windows[0]->max_frequency;
 	uint32_t min_window_index = 0;
 	for (uint32_t i = 1; i < windows.size(); i++) {
@@ -85,14 +86,28 @@ VariantWindow *KmerFinder::FindRarestWindowForVariant(uint32_t reference_node_id
 	return windows[min_window_index];
 }
 
-std::vector<VariantWindow *> KmerFinder::FindWindowsForVariant(uint32_t reference_node_id, uint32_t variant_node_id) {
+VariantWindow *KmerFinder::FindRarestWindowForVariant(uint32_t reference_node_id, uint32_t variant_node_id) {
+	KmerFinder *kf = CreateWindowFinder();
 
-	KmerFinder *kf = new KmerFinder(graph, k, max_variant_nodes);
+	VariantWindow *result = FindRarestWindowForVariantWithFinder(reference_node_id, variant_node_id, kf);
+
+	delete kf;
+
+	return result;
+}
+
+KmerFinder *KmerFinder::CreateWindowFinder() {
+	KmerFinder *kf = new KmerFinder(graph, k, max_variant_nodes);	
 	if (kmer_frequency_index.empty()) {
 		kmer_frequency_index = CreateKmerFrequencyIndex();
 	}
 	kf->SetKmerFrequencyIndex(kmer_frequency_index);
 	kf->SetFilter(FLAG_SAVE_WINDOWS, true);
+	return kf;
+}
+
+std::vector<VariantWindow *> KmerFinder::FindWindowsForVariantWithFinder(
+		uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
 	kf->FindKmersForVariant(reference_node_id, variant_node_id);
 	
 	std::vector<VariantWindow *> windows;
@@ -106,7 +121,6 @@ std::vector<VariantWindow *> KmerFinder::FindWindowsForVariant(uint32_t referenc
 
 	if (variant_window_start == kf->found_windows) {
 		printf("FATAL: Failed to find windows for the variant node.\n");
-		delete kf;
 		return windows;
 	}
 
@@ -137,9 +151,17 @@ std::vector<VariantWindow *> KmerFinder::FindWindowsForVariant(uint32_t referenc
 		}
 	}
 
+	return windows;
+}
+
+std::vector<VariantWindow *> KmerFinder::FindWindowsForVariant(uint32_t reference_node_id, uint32_t variant_node_id) {
+	KmerFinder *kf = CreateWindowFinder();
+
+	std::vector<VariantWindow *> result = FindWindowsForVariantWithFinder(reference_node_id, variant_node_id, kf);
+
 	delete kf;
 
-	return windows;
+	return result;
 }
 
 void KmerFinder::FindKmersForVariant(uint32_t reference_node_id, uint32_t variant_node_id) {
@@ -165,8 +187,11 @@ void KmerFinder::FindKmersSpanningNode(uint32_t center_node_id) {
 	std::vector<uint32_t> visited;
 	std::stack<uint32_t> stack;
 	stack.push(center_node_id);
+	bool found_any = false;
+	uint32_t visited_count = 0;
 
 	while (!stack.empty()) {
+		visited_count++;
 		uint32_t node_id = stack.top();
 		stack.pop();
 		visited.push_back(node_id);
@@ -174,7 +199,15 @@ void KmerFinder::FindKmersSpanningNode(uint32_t center_node_id) {
 
 		if (node->length > 0) {
 			uint64_t local_found_count = FindKmersFromNode(node_id);
-			if (local_found_count == 0) continue;
+			if (local_found_count == 0)
+				if (found_any) continue;
+			else
+				found_any = true;
+		}
+
+		if (!found_any && visited_count > k * k) {
+			printf("FATAL: Failed to find any kmers spanning node %u.\n", center_node_id);
+			break;
 		}
 
 		for (uint8_t i = 0; i < node->edges_in_len; i++) {

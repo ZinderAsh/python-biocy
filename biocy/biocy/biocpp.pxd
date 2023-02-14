@@ -77,4 +77,8 @@ cdef extern from "cpp/KmerFinder.hpp":
         void SetKmerFrequencyIndex(unordered_map[uint64_t, uint32_t])
         bool HasKmerFrequencyIndex()
 
+        KmerFinder *CreateWindowFinder()
         VariantWindow *FindRarestWindowForVariant(uint32_t reference_node_id, uint32_t variant_node_id)
+        VariantWindow *FindRarestWindowForVariantWithFinder(
+                uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf)
+

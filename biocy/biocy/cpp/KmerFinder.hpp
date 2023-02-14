@@ -78,8 +78,11 @@ public:
 	void Find();
 	void FindKmersForVariant(uint32_t reference_node_id, uint32_t variant_node_id);
 	void FindKmersSpanningNode(uint32_t center_node_id);
+	KmerFinder *CreateWindowFinder();
 	std::vector<VariantWindow *> FindWindowsForVariant(uint32_t reference_node_id, uint32_t variant_node_id);
+	std::vector<VariantWindow *> FindWindowsForVariantWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf);
 	VariantWindow *FindRarestWindowForVariant(uint32_t reference_node_id, uint32_t variant_node_id);
+	VariantWindow *FindRarestWindowForVariantWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf);
 	void ReverseFoundKmers();
 	std::unordered_map<uint64_t, uint32_t> CreateKmerFrequencyIndex();
 
