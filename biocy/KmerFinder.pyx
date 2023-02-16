@@ -8,7 +8,7 @@ cdef class KmerFinder:
     cdef int k
     cdef int max_variant_nodes
 
-    def __cinit__(self, Graph graph, int k, int max_variant_nodes=31):
+    def __cinit__(self, Graph graph, int k, int max_variant_nodes=255):
         if k < 1 or k > 31:
             raise "KmerFinder: k must be between 1 and 31 inclusive"
         self.graph = graph
@@ -22,7 +22,7 @@ cdef class KmerFinder:
         if reverse_kmers:
             kf.ReverseFoundKmers()
         print("Copying to numpy arrays")
-        kmers = np.empty((kf.found_count,), dtype=np.ulonglong)
+        kmers = np.empty((kf.found_count,), dtype=np.uint64)
         nodes = np.empty((kf.found_count,), dtype=np.uint32)
         cdef cnp.ndarray[unsigned long long, ndim=1, mode="c"] c_kmers = kmers
         cdef cnp.ndarray[unsigned int, ndim=1, mode="c"] c_nodes = nodes
@@ -32,7 +32,7 @@ cdef class KmerFinder:
         print("Done")
         return kmers, nodes
 
-    def find_identifying_windows_for_variants(self, reference_node_ids, variant_node_ids, max_variant_nodes=100, reverse_kmers=False):
+    def find_identifying_windows_for_variants(self, reference_node_ids, variant_node_ids, reverse_kmers=False):
         if len(reference_node_ids) != len(variant_node_ids):
             raise "find_identifying_windows_for_variants: reference_node_ids and variant_node_ids must have the same length."
         cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, self.max_variant_nodes)
@@ -53,8 +53,8 @@ cdef class KmerFinder:
         cdef uint32_t variant_kmer_index = 0
         cdef uint32_t additional_reference_kmers = 0
         cdef uint32_t additional_variant_kmers = 0
-        reference_kmers = np.empty((pair_count,), dtype=np.ulonglong)
-        variant_kmers = np.empty((pair_count,), dtype=np.ulonglong)
+        reference_kmers = np.empty((pair_count,), dtype=np.uint64)
+        variant_kmers = np.empty((pair_count,), dtype=np.uint64)
         reference_kmer_lens = np.empty((pair_count,), dtype=np.uint32)
         variant_kmer_lens = np.empty((pair_count,), dtype=np.uint32)
         
