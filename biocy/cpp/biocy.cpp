@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 	KmerFinder *kf = new KmerFinder(graph, k, 31);
 	kf->Find();
 	auto windows = kf->FindWindowsForVariant(node_4, node_5);
-	VariantWindow *min_window = kf->FindRarestWindowForVariant(node_4, node_5);
+	VariantWindow *min_window = kf->FindVariantSignatures(node_4, node_5);
 	kf->FindKmersForVariant(node_4, node_5);
 
 	/*

@@ -341,7 +341,7 @@ TEST_CASE("Test finding minimal variant windows.") {
 			KmerFinder *kf = new KmerFinder(graph, 5, 31);
 			kf->SetKmerFrequencyIndex(index);
 
-			VariantWindow *min_window = kf->FindRarestWindowForVariant(node_4, node_5);
+			VariantWindow *min_window = kf->FindVariantSignatures(node_4, node_5);
 
 			CHECK(min_window->max_frequency == 7);
 			CHECK(min_window->reference_kmers_len == 2);
@@ -370,7 +370,7 @@ TEST_CASE("Test finding minimal variant windows.") {
 			KmerFinder *kf = new KmerFinder(graph, 5, 31);
 			kf->SetKmerFrequencyIndex(index);
 
-			VariantWindow *min_window = kf->FindRarestWindowForVariant(node_4, node_5);
+			VariantWindow *min_window = kf->FindVariantSignatures(node_4, node_5);
 
 			CHECK(min_window->max_frequency == 7);
 			CHECK(min_window->reference_kmers_len == 1);
@@ -454,7 +454,7 @@ TEST_CASE("Test finding minimal variant windows.") {
 			KmerFinder *kf = new KmerFinder(graph, 5, 31);
 			kf->SetKmerFrequencyIndex(index);
 
-			VariantWindow *min_window = kf->FindRarestWindowForVariant(node_4, node_5);
+			VariantWindow *min_window = kf->FindVariantSignatures(node_4, node_5);
 
 			CHECK(min_window->max_frequency == 7);
 			CHECK(min_window->reference_kmers_len == 2);

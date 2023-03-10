@@ -264,12 +264,10 @@ cdef class Graph:
     def is_valid_encoding(encoding):
         if len(encoding) != 4:
             raise "Graph encoding must be a permutation of ACGT (length was not 4)."
-            return False
         encoding = encoding.upper()
         for i in "ACGT":
             if i not in encoding:
                 raise "Graph encoding must be a permutation of ACGT (did not include all characters)."
-                return False
         return True
 
 def hash_kmer(kmer, k, encoding="ACGT"):

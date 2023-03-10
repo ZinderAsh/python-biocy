@@ -69,8 +69,7 @@ void KmerFinder::InitializeFoundArrays() {
 	}
 }
 
-VariantWindow *KmerFinder::FindRarestWindowForVariantWithFinder(
-		uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
+VariantWindow *KmerFinder::FindVariantSignaturesWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
 	auto windows = FindWindowsForVariantWithFinder(reference_node_id, variant_node_id, kf);
 	uint32_t min_frequency = windows[0]->max_frequency;
 	uint32_t min_window_index = 0;
@@ -86,10 +85,10 @@ VariantWindow *KmerFinder::FindRarestWindowForVariantWithFinder(
 	return windows[min_window_index];
 }
 
-VariantWindow *KmerFinder::FindRarestWindowForVariant(uint32_t reference_node_id, uint32_t variant_node_id) {
+VariantWindow *KmerFinder::FindVariantSignatures(uint32_t reference_node_id, uint32_t variant_node_id) {
 	KmerFinder *kf = CreateWindowFinder();
 
-	VariantWindow *result = FindRarestWindowForVariantWithFinder(reference_node_id, variant_node_id, kf);
+	VariantWindow *result = FindVariantSignaturesWithFinder(reference_node_id, variant_node_id, kf);
 
 	delete kf;
 
@@ -97,17 +96,20 @@ VariantWindow *KmerFinder::FindRarestWindowForVariant(uint32_t reference_node_id
 }
 
 KmerFinder *KmerFinder::CreateWindowFinder() {
-	KmerFinder *kf = new KmerFinder(graph, k, max_variant_nodes);	
-	if (kmer_frequency_index.empty()) {
-		kmer_frequency_index = CreateKmerFrequencyIndex();
+	KmerFinder *kf = new KmerFinder(graph, k, max_variant_nodes);
+	if (nps_frequency_index != NULL) {
+		kf->nps_frequency_index = nps_frequency_index;
+	} else {
+		if (kmer_frequency_index.empty()) {
+			kmer_frequency_index = CreateKmerFrequencyIndex();
+		}
+		kf->SetKmerFrequencyIndex(kmer_frequency_index);
 	}
-	kf->SetKmerFrequencyIndex(kmer_frequency_index);
 	kf->SetFilter(FLAG_SAVE_WINDOWS, true);
 	return kf;
 }
 
-std::vector<VariantWindow *> KmerFinder::FindWindowsForVariantWithFinder(
-		uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
+std::vector<VariantWindow *> KmerFinder::FindWindowsForVariantWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
 	kf->FindKmersForVariant(reference_node_id, variant_node_id);
 	
 	std::vector<VariantWindow *> windows;
@@ -199,9 +201,9 @@ void KmerFinder::FindKmersSpanningNode(uint32_t center_node_id) {
 
 		if (node->length > 0) {
 			uint64_t local_found_count = FindKmersFromNode(node_id);
-			if (local_found_count == 0)
+			if (local_found_count == 0) {
 				if (found_any) continue;
-			else
+			} else
 				found_any = true;
 		}
 
@@ -234,7 +236,15 @@ void KmerFinder::Find() {
 	}
 }
 
+uint64_t KmerFinder::GetKmerFrequency(uint64_t kmer) {
+	if (nps_frequency_index != NULL) {
+		return nps_frequency_index->Get(kmer);
+	}
+	return kmer_frequency_index[kmer];
+}
+
 bool KmerFinder::AddFoundWindowKmer(uint32_t node_id, uint64_t kmer, uint32_t start_position, uint16_t node_kmer_position) {
+	uint64_t kmer_frequency = GetKmerFrequency(kmer);
 	for (uint64_t i = 0; i < found_window_count; i++) {
 		struct kmer_window *window = found_windows + i;
 		if (window->node_id == node_id &&
@@ -243,8 +253,8 @@ bool KmerFinder::AddFoundWindowKmer(uint32_t node_id, uint64_t kmer, uint32_t st
 			window->length++;
 			window->kmers = (uint64_t *) realloc(window->kmers, sizeof(uint64_t) * window->length);
 			window->kmers[window->length - 1] = kmer;
-			if (kmer_frequency_index[kmer] > window->max_frequency) {
-				window->max_frequency = kmer_frequency_index[kmer];
+			if (kmer_frequency > window->max_frequency) {
+				window->max_frequency = kmer_frequency;
 			}
 			return true;
 		}
@@ -260,7 +270,7 @@ bool KmerFinder::AddFoundWindowKmer(uint32_t node_id, uint64_t kmer, uint32_t st
 	window->kmers[0] = kmer;
 	window->start_position = start_position;
 	window->kmer_position = node_kmer_position;
-	window->max_frequency = kmer_frequency_index[kmer];
+	window->max_frequency = kmer_frequency;
 	
 	found_window_count++;
 

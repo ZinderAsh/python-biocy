@@ -57,6 +57,20 @@ cdef extern from "cpp/KmerFinder.hpp":
 
         void ReverseKmers(uint8_t k)
 
+    cdef cppclass NPStructuresHashTable:
+        uint64_t mod;
+        void *keys;
+        void *values;
+        void *starts;
+        void *lengths;
+        uint8_t sizeof_key_dtype;
+        uint8_t sizeof_value_dtype;
+        uint8_t sizeof_start_dtype;
+        uint8_t sizeof_length_dtype;
+
+        uint64_t Get(uint64_t key)
+        void PrintKeys()
+
     cdef cppclass KmerFinder:
         KmerFinder(Graph *, uint8_t, uint8_t) except +
         Graph *graph
@@ -65,6 +79,7 @@ cdef extern from "cpp/KmerFinder.hpp":
         uint64_t *found_kmers
         uint32_t *found_nodes
         uint64_t found_count
+        NPStructuresHashTable *nps_frequency_index
 
         void Find()
         void ReverseFoundKmers() 
@@ -78,7 +93,7 @@ cdef extern from "cpp/KmerFinder.hpp":
         bool HasKmerFrequencyIndex()
 
         KmerFinder *CreateWindowFinder()
-        VariantWindow *FindRarestWindowForVariant(uint32_t reference_node_id, uint32_t variant_node_id)
-        VariantWindow *FindRarestWindowForVariantWithFinder(
+        VariantWindow *FindVariantSignatures(uint32_t reference_node_id, uint32_t variant_node_id)
+        VariantWindow *FindVariantSignaturesWithFinder(
                 uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf)
 
