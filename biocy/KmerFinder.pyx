@@ -51,7 +51,7 @@ cdef class KmerFinder:
             print("Creating frequency index...")
             kf.SetKmerFrequencyIndex(kf.CreateKmerFrequencyIndex())
             kf.SetFlag(cpp.FLAG_ONLY_SAVE_INITIAL_NODES, False)
-        
+
         print("Finding windows...")
         cdef cpp.VariantWindow *window
         cdef uint32_t i
@@ -65,12 +65,12 @@ cdef class KmerFinder:
         variant_kmers = np.empty((pair_count,), dtype=np.uint64)
         reference_kmer_lens = np.empty((pair_count,), dtype=np.uint32)
         variant_kmer_lens = np.empty((pair_count,), dtype=np.uint32)
-        
+
         cdef cpp.KmerFinder *window_finder = kf.CreateWindowFinder()
 
         for i in range(pair_count):
             window = kf.FindVariantSignaturesWithFinder(reference_node_ids[i], variant_node_ids[i], window_finder)
-            
+
             if reverse_kmers:
                 window.ReverseKmers(kf.k)
 
@@ -93,21 +93,21 @@ cdef class KmerFinder:
             for j in range(window.variant_kmers_len):
                 variant_kmers[variant_kmer_index] = window.variant_kmers[j]
                 variant_kmer_index += 1
-            
+
             del window
 
         del kf
-        
+
         reference_kmers = RaggedArray(reference_kmers, shape=reference_kmer_lens, dtype=np.uint64)
         variant_kmers = RaggedArray(variant_kmers, shape=variant_kmer_lens, dtype=np.uint64)
-        
+
 
         return reference_kmers, variant_kmers
 
     cdef set_kmer_finder_frequency_index(self, cpp.KmerFinder *kf):
         self._kmer_frequency_index_starts = np.ascontiguousarray(self._kmer_frequency_index._values._shape.starts)
         self._kmer_frequency_index_lengths = np.ascontiguousarray(self._kmer_frequency_index._values.lengths)
-        cdef cnp.ndarray[long, ndim=1, mode="c"] c_keys = self._kmer_frequency_index._keys.ravel()
+        cdef cnp.ndarray[long, ndim=1, mode="c"] c_keys = self._kmer_frequency_index._keys.ravel().astype(np.int64)
         cdef cnp.ndarray[long, ndim=1, mode="c"] c_values = self._kmer_frequency_index._values.ravel()
         cdef cnp.ndarray[long, ndim=1, mode="c"] c_starts = self._kmer_frequency_index_starts
         cdef cnp.ndarray[long, ndim=1, mode="c"] c_lengths = self._kmer_frequency_index_lengths
