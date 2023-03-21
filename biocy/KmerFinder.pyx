@@ -65,11 +65,17 @@ cdef class KmerFinder:
         variant_kmers = np.empty((pair_count,), dtype=np.uint64)
         reference_kmer_lens = np.empty((pair_count,), dtype=np.uint32)
         variant_kmer_lens = np.empty((pair_count,), dtype=np.uint32)
+        print("Inited arrays")
 
         cdef cpp.KmerFinder *window_finder = kf.CreateWindowFinder()
 
+        print("CreateWindowFinder done")
+
         for i in range(pair_count):
+            print("I: ", i, flush=True)
             window = kf.FindVariantSignaturesWithFinder(reference_node_ids[i], variant_node_ids[i], window_finder)
+
+            print("2", flush=True)
 
             if reverse_kmers:
                 window.ReverseKmers(kf.k)
@@ -98,6 +104,7 @@ cdef class KmerFinder:
 
         del kf
 
+        print("Making ragged arrays")
         reference_kmers = RaggedArray(reference_kmers, shape=reference_kmer_lens, dtype=np.uint64)
         variant_kmers = RaggedArray(variant_kmers, shape=variant_kmer_lens, dtype=np.uint64)
 
@@ -105,7 +112,9 @@ cdef class KmerFinder:
         return reference_kmers, variant_kmers
 
     cdef set_kmer_finder_frequency_index(self, cpp.KmerFinder *kf):
+        print("1")
         self._kmer_frequency_index_starts = np.ascontiguousarray(self._kmer_frequency_index._values._shape.starts)
+        print("2")
         self._kmer_frequency_index_lengths = np.ascontiguousarray(self._kmer_frequency_index._values.lengths)
         cdef cnp.ndarray[long, ndim=1, mode="c"] c_keys = self._kmer_frequency_index._keys.ravel().astype(np.int64)
         cdef cnp.ndarray[long, ndim=1, mode="c"] c_values = self._kmer_frequency_index._values.ravel()
@@ -124,6 +133,7 @@ cdef class KmerFinder:
         if kf.nps_frequency_index != NULL:
             del kf.nps_frequency_index
         kf.nps_frequency_index = hash_table
+        print("Frequency set")
 
     def set_kmer_frequency_index(self, frequency_index):
         if isinstance(frequency_index, Counter):
