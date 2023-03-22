@@ -97,14 +97,10 @@ VariantWindow *KmerFinder::FindVariantSignatures(uint32_t reference_node_id, uin
 
 KmerFinder *KmerFinder::CreateWindowFinder() {
 	KmerFinder *kf = new KmerFinder(graph, k, max_variant_nodes);
-	if (nps_frequency_index != NULL) {
-		kf->nps_frequency_index = nps_frequency_index;
-	} else {
-		if (kmer_frequency_index.empty()) {
-			kmer_frequency_index = CreateKmerFrequencyIndex();
-		}
-		kf->SetKmerFrequencyIndex(kmer_frequency_index);
+	if (kmer_frequency_index.empty()) {
+		kmer_frequency_index = CreateKmerFrequencyIndex();
 	}
+	kf->SetKmerFrequencyIndex(kmer_frequency_index);
 	kf->SetFilter(FLAG_SAVE_WINDOWS, true);
 	return kf;
 }
@@ -237,9 +233,6 @@ void KmerFinder::Find() {
 }
 
 uint64_t KmerFinder::GetKmerFrequency(uint64_t kmer) {
-	if (nps_frequency_index != NULL) {
-		return nps_frequency_index->Get(kmer);
-	}
 	return kmer_frequency_index[kmer];
 }
 

@@ -23,60 +23,6 @@ struct kmer_window {
 	uint32_t max_frequency;
 };
 
-class NPStructuresHashTable {
-public:
-	uint64_t mod;
-	void *keys;
-	void *values;
-	void *starts;
-	void *lengths;
-	uint8_t sizeof_key_dtype;
-	uint8_t sizeof_value_dtype;
-	uint8_t sizeof_start_dtype;
-	uint8_t sizeof_length_dtype;
-
-	NPStructuresHashTable() {
-		mod = 1;
-		keys = NULL;
-		values = NULL;
-		starts = NULL;
-		lengths = NULL;
-		sizeof_key_dtype = 1;
-		sizeof_value_dtype = 1;
-		sizeof_start_dtype = 1;
-		sizeof_length_dtype = 1;
-	}
-
-	void PrintKeys() {
-		uint64_t total = 0;
-		for (uint64_t i = 0; i < mod; i++) {
-			uint64_t length = (*((uint64_t *) ((char *) lengths + i * sizeof_length_dtype))) & ((1L << sizeof_length_dtype) - 1);
-			total += length;
-		}
-		printf("Total Keys: %lu\n", total);
-		for (uint64_t i = 0; i < total; i++) {
-			uint64_t current_key = (*((uint64_t *) ((char *) keys + i * sizeof_key_dtype))) & ((1L << sizeof_key_dtype) - 1);
-			printf("- %lu\n", current_key);
-		}
-	}
-
-	uint64_t Get(uint64_t key) {
-		uint64_t index = key % mod;
-		uint64_t real_start_index = (*((uint64_t *) ((uint8_t *) starts + index * sizeof_start_dtype))) & (-1L << ((8 - sizeof_start_dtype) * 8));
-		uint64_t length = (*((uint64_t *) ((uint8_t *) lengths + index * sizeof_length_dtype))) & (-1L << ((8 - sizeof_length_dtype) * 8));
-		for (uint64_t i = 0; i < length; i++) {
-			uint64_t real_key_index = (real_start_index + i);
-			uint64_t current_key = (*((uint64_t *) ((uint8_t *) keys + real_key_index * sizeof_key_dtype))) & (-1L << ((8 - sizeof_key_dtype) * 8));
-			if (current_key == key) {
-				uint64_t real_value_index = (real_start_index + i);
-				uint64_t value = (*((uint64_t *) ((uint8_t *) values + real_value_index * sizeof_value_dtype))) & (-1L << ((8 - sizeof_value_dtype) * 8));
-				return value;
-			}
-		}
-		return 0;
-	}
-};
-
 class KmerFinder {
 public:
 	Graph *graph;
@@ -93,7 +39,6 @@ public:
 	uint64_t found_count;
 	struct kmer_window *found_windows;
 	uint32_t found_window_count;
-	NPStructuresHashTable *nps_frequency_index = NULL;
 
 private:
 	uint64_t found_len;
@@ -114,7 +59,6 @@ private:
 public:
 	KmerFinder(Graph *graph, uint8_t k, uint8_t max_variant_nodes);
 	~KmerFinder() {
-		if (nps_frequency_index) delete nps_frequency_index;
 		if (found_kmers) free(found_kmers);
 		if (found_nodes) free(found_nodes);
 		if (found_node_sequence_start_positions) free(found_node_sequence_start_positions);

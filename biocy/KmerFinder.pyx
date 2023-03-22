@@ -8,8 +8,6 @@ cdef class KmerFinder:
     cdef int k
     cdef int max_variant_nodes
     cdef public object _kmer_frequency_index
-    cdef public object _kmer_frequency_index_starts
-    cdef public object _kmer_frequency_index_lengths
 
     def __cinit__(self, Graph graph, int k, int max_variant_nodes=255):
         if k < 1 or k > 31:
@@ -18,8 +16,6 @@ cdef class KmerFinder:
         self.k = k
         self.max_variant_nodes = max_variant_nodes
         self._kmer_frequency_index = None
-        self._kmer_frequency_index_starts = None
-        self._kmer_frequency_index_lengths = None
 
     def find(self, reverse_kmers=False):
         print("Finding kmers...")
@@ -43,6 +39,7 @@ cdef class KmerFinder:
             raise "find_identifying_windows_for_variants: reference_node_ids and variant_node_ids must have the same length."
         cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, self.max_variant_nodes)
         if self._kmer_frequency_index is not None:
+            print("Creating frequency index from Counter...")
             self.set_kmer_finder_frequency_index(kf)
         else:
             print("Finding kmers...")
@@ -51,7 +48,6 @@ cdef class KmerFinder:
             print("Creating frequency index...")
             kf.SetKmerFrequencyIndex(kf.CreateKmerFrequencyIndex())
             kf.SetFlag(cpp.FLAG_ONLY_SAVE_INITIAL_NODES, False)
-        
         print("Finding windows...")
         cdef cpp.VariantWindow *window
         cdef uint32_t i
@@ -104,30 +100,24 @@ cdef class KmerFinder:
 
         return reference_kmers, variant_kmers
 
-    cdef set_kmer_finder_frequency_index(self, cpp.KmerFinder *kf):
-        self._kmer_frequency_index_starts = np.ascontiguousarray(self._kmer_frequency_index._values._shape.starts)
-        self._kmer_frequency_index_lengths = np.ascontiguousarray(self._kmer_frequency_index._values.lengths)
-        cdef cnp.ndarray[long, ndim=1, mode="c"] c_keys = self._kmer_frequency_index._keys.ravel()
-        cdef cnp.ndarray[long, ndim=1, mode="c"] c_values = self._kmer_frequency_index._values.ravel()
-        cdef cnp.ndarray[long, ndim=1, mode="c"] c_starts = self._kmer_frequency_index_starts
-        cdef cnp.ndarray[long, ndim=1, mode="c"] c_lengths = self._kmer_frequency_index_lengths
-        cdef cpp.NPStructuresHashTable *hash_table = new cpp.NPStructuresHashTable()
-        hash_table.mod = self._kmer_frequency_index._mod
-        hash_table.keys = c_keys.data
-        hash_table.values = c_values.data
-        hash_table.starts = c_starts.data
-        hash_table.lengths = c_lengths.data;
-        hash_table.sizeof_key_dtype = self._kmer_frequency_index._keys.dtype.itemsize
-        hash_table.sizeof_value_dtype = self._kmer_frequency_index._values.dtype.itemsize
-        hash_table.sizeof_start_dtype = self._kmer_frequency_index_starts.dtype.itemsize
-        hash_table.sizeof_length_dtype = self._kmer_frequency_index_lengths.dtype.itemsize
-        if kf.nps_frequency_index != NULL:
-            del kf.nps_frequency_index
-        kf.nps_frequency_index = hash_table
-
     def set_kmer_frequency_index(self, frequency_index):
         if isinstance(frequency_index, Counter):
             self._kmer_frequency_index = frequency_index
         else:
             raise "A frequency index is required to be a Counter from npstructures."
 
+    cdef set_kmer_finder_frequency_index(self, cpp.KmerFinder *kf):
+        cdef unordered_map[uint64_t, uint32_t] frequency_index;
+        
+        kmer_frequency_index_keys = np.ascontiguousarray(self._kmer_frequency_index._keys.ravel()).astype(np.uint64)
+        kmer_frequency_index_values = np.ascontiguousarray(self._kmer_frequency_index._values.ravel()).astype(np.uint32)
+
+        cdef cnp.ndarray[uint64_t, ndim=1, mode="c"] c_keys = kmer_frequency_index_keys
+        cdef cnp.ndarray[uint32_t, ndim=1, mode="c"] c_values = kmer_frequency_index_values
+
+        cdef uint64_t i
+        cdef uint64_t key_count = len(kmer_frequency_index_keys)
+        for i in range(key_count):
+            frequency_index[c_keys[i]] = c_values[i]
+        
+        kf.SetKmerFrequencyIndex(frequency_index)
