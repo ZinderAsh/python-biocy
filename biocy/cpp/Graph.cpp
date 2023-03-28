@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "GFA.hpp"
+#include "VCF.hpp"
 
 #define LINE_BUF_LEN 1024
 #define DEFAULT_ENCODING "ACGT"
@@ -59,6 +60,20 @@ Graph *Graph::FromGFAFileEncoded(char *filepath, const char *encoding) {
 
 	delete gfa;
 	
+	return graph;
+}
+
+Graph *Graph::FromFastaVCF(char *fasta_filepath, char *vcf_filepath, uint32_t chromosome) {
+	return FromFastaVCFEncoded(fasta_filepath, vcf_filepath, chromosome, DEFAULT_ENCODING);
+}
+
+Graph *Graph::FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, uint32_t chromosome, const char *encoding) {
+	VCF *vcf = VCF::ReadFile(vcf_filepath, chromosome);
+
+	Graph *graph = new Graph(encoding);
+
+	delete vcf;
+
 	return graph;
 }
 

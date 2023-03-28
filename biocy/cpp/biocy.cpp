@@ -9,6 +9,10 @@
 #include "node.hpp"
 
 int main(int argc, char** argv) {
+	if (argc != 3) return 1;
+	Graph *graph = Graph::FromFastaVCF(argv[1], argv[2], 21);
+	delete graph;
+	/*
 	Graph *graph = new Graph("ACGT");
 
 	uint32_t node_0 = graph->AddNode("ACTGACTGACTG");
@@ -53,7 +57,7 @@ int main(int argc, char** argv) {
 	auto windows = kf->FindWindowsForVariant(node_4, node_5);
 	VariantWindow *min_window = kf->FindVariantSignatures(node_4, node_5);
 	kf->FindKmersForVariant(node_4, node_5);
-
+	*/
 	/*
 	printf("window kmers\n");
 	for (uint64_t i = 0; i < kf->found_count; i++) {
@@ -68,7 +72,7 @@ int main(int argc, char** argv) {
 		free(kmer);
 	}
 	*/
-
+	/*
 	printf("variant windows\n");
 	for (uint32_t i = 0; i < windows.size(); i++) {
 		windows[i]->Print(kf);
@@ -86,6 +90,7 @@ int main(int argc, char** argv) {
 	delete graph;
 
 	return 0;
+	*/
 	/*
 	if (argc != 2) {
 		printf("This program requires one argument: A filename for an npz file.\n");

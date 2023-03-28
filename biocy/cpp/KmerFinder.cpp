@@ -69,12 +69,51 @@ void KmerFinder::InitializeFoundArrays() {
 	}
 }
 
+uint32_t KmerFinder::GetWindowOverlap(std::vector<VariantWindow *> *windows, uint32_t window_index) {
+	uint32_t overlap = 0;
+	VariantWindow *window = (*windows)[window_index];
+	VariantWindow *other_window;
+	uint64_t kmer;
+	
+	for (uint32_t i = 0; i < window->reference_kmers_len; i++) {
+		kmer = window->reference_kmers[i];
+		for (uint32_t w = 0; w < windows->size(); w++) {
+			if (w == window_index) continue;
+			other_window = (*windows)[w];
+			for (uint32_t j = 0; j < other_window->variant_kmers_len; j++) {
+				if (kmer == other_window->variant_kmers[j])
+					overlap++;
+			}
+		}
+	}
+	
+	for (uint32_t i = 0; i < window->variant_kmers_len; i++) {
+		kmer = window->variant_kmers[i];
+		for (uint32_t w = 0; w < windows->size(); w++) {
+			if (w == window_index) continue;
+			other_window = (*windows)[w];
+			for (uint32_t j = 0; j < other_window->reference_kmers_len; j++) {
+				if (kmer == other_window->reference_kmers[j])
+					overlap++;
+			}
+		}
+	}
+
+	return overlap;
+}
+
 VariantWindow *KmerFinder::FindVariantSignaturesWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
 	auto windows = FindWindowsForVariantWithFinder(reference_node_id, variant_node_id, kf);
 	uint32_t min_frequency = windows[0]->max_frequency;
+	uint32_t min_overlap = GetWindowOverlap(&windows, 0);
 	uint32_t min_window_index = 0;
 	for (uint32_t i = 1; i < windows.size(); i++) {
-		if (windows[i]->max_frequency < min_frequency) {
+		uint32_t overlap = GetWindowOverlap(&windows, i);
+		if (overlap < min_overlap) {
+			min_overlap = overlap;
+			min_frequency = windows[i]->max_frequency;
+			min_window_index = i;
+		} else if (overlap == min_overlap && windows[i]->max_frequency < min_frequency) {
 			min_frequency = windows[i]->max_frequency;
 			min_window_index = i;
 		}

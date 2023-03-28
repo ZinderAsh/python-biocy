@@ -4,7 +4,7 @@ CBUILDDIR=build/src
 CPROGRAMDIR=build
 CTESTDIR=tests
 CSRCDIR=biocy/cpp
-COBJECTS=$(CBUILDDIR)/Graph.o $(CBUILDDIR)/hashing.o $(CBUILDDIR)/KmerFinder.o $(CBUILDDIR)/GFA.o
+COBJECTS=$(CBUILDDIR)/Graph.o $(CBUILDDIR)/hashing.o $(CBUILDDIR)/KmerFinder.o $(CBUILDDIR)/GFA.o $(CBUILDDIR)/VCF.o
 CHEADERS=$(CSRCDIR)/node.hpp $(CSRCDIR)/doctest.h
 
 .PHONY: clean clean-build clean-pyc clean-test coverage dist docs help install lint lint/flake8
@@ -122,6 +122,10 @@ $(CBUILDDIR)/KmerFinder.o: $(CSRCDIR)/KmerFinder.cpp $(CSRCDIR)/KmerFinder.hpp $
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
 $(CBUILDDIR)/GFA.o: $(CSRCDIR)/GFA.cpp $(CSRCDIR)/GFA.hpp $(CBUILDDIR)/hashing.o
+	mkdir -p $(CBUILDDIR)
+	$(CXX) $(CFLAGS) -c -o $@ $<
+
+$(CBUILDDIR)/VCF.o: $(CSRCDIR)/VCF.cpp $(CSRCDIR)/VCF.hpp
 	mkdir -p $(CBUILDDIR)
 	$(CXX) $(CFLAGS) -c -o $@ $<
 

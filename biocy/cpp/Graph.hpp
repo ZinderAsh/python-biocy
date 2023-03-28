@@ -40,6 +40,8 @@ public:
 	static Graph *FromFile(char *filepath);
 	static Graph *FromGFAFile(char *filepath);
 	static Graph *FromGFAFileEncoded(char *filepath, const char *encoding);
+	static Graph *FromFastaVCF(char *fasta_filepath, char *vcf_filepath, uint32_t chromosome);
+	static Graph *FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, uint32_t chromosome, const char *encoding);
 
 	struct node *Get(uint32_t node_id) {
 		return nodes + node_id;

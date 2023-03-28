@@ -83,6 +83,7 @@ public:
 	std::vector<VariantWindow *> FindWindowsForVariantWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf);
 	VariantWindow *FindVariantSignatures(uint32_t reference_node_id, uint32_t variant_node_id);
 	VariantWindow *FindVariantSignaturesWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf);
+	uint32_t GetWindowOverlap(std::vector<VariantWindow *> *windows, uint32_t window_index);
 	void ReverseFoundKmers();
 	std::unordered_map<uint64_t, uint32_t> CreateKmerFrequencyIndex();
 	uint64_t GetKmerFrequency(uint64_t kmer);
