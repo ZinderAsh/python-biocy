@@ -113,7 +113,7 @@ install: clean kmer_finder.o ## install the package to the active Python's site-
 
 # C objects and programs
 
-$(CBUILDDIR)/Graph.o: $(CSRCDIR)/Graph.cpp $(CSRCDIR)/Graph.hpp $(CSRCDIR)/node.hpp
+$(CBUILDDIR)/Graph.o: $(CSRCDIR)/Graph.cpp $(CSRCDIR)/Graph.hpp $(CSRCDIR)/node.hpp $(CSRCDIR)/VCF.o
 	mkdir -p $(CBUILDDIR)
 	$(CXX) $(CFLAGS) -c -o $@ $<
 

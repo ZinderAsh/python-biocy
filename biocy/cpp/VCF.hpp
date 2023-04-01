@@ -9,7 +9,7 @@
 class VCF {
 public:
 	uint64_t length;
-	uint32_t *chromosomes;
+	int16_t *chromosomes;
 	uint64_t *positions;
 	char **references;
 	char **variants;
@@ -29,12 +29,22 @@ public:
 	~VCF() {
 		if (chromosomes) free(chromosomes);
 		if (positions) free(positions);
-		if (references) free(references);
-		if (variants) free(variants);
+		if (references) {
+			for (uint64_t i = 0; i < length; i++) {
+				free(references[i]);
+			}
+			free(references);
+		}
+		if (variants) {
+			for (uint64_t i = 0; i < length; i++) {
+				free(variants[i]);
+			}
+			free(variants);
+		}
 		free(filepath);
 	}
 
-	static VCF *ReadFile(char *filepath, uint32_t chromosome);
+	static VCF *ReadFile(char *filepath, int16_t chromosome);
 private:
 
 	VCF(char *filepath) {
@@ -47,8 +57,11 @@ private:
 	}
 
 	void InitializeArrays();
-	uint64_t ReadChromosomeRowCount(uint32_t chromosome);
-	void ReadChromosome(uint32_t chromosome);
+	uint64_t ReadChromosomeRowCount(int16_t chromosome);
+	void ReadChromosome(int16_t chromosome);
+	void AddVariant(uint64_t index, int16_t chromosome, uint64_t position, char *reference, uint8_t ref_len, char *variant, uint8_t var_len);
+	void AddSingleVariant(uint64_t index, int16_t chromosome, uint64_t position, char *reference, uint8_t ref_len, char *variant, uint8_t var_len);
+	void AddMultiVariant(uint64_t index, int16_t chromosome, uint64_t position, char *reference, uint8_t ref_len, char *variant_buffer, uint8_t var_len);
 	
 	/*
 	void ReadNodeCountAndIDRange();

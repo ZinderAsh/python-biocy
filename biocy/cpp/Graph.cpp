@@ -72,6 +72,30 @@ Graph *Graph::FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, uint
 
 	Graph *graph = new Graph(encoding);
 
+	/*
+	uint64_t i = 99025;
+	for (i = 0; i < 100000; i++) {
+		if (strlen(vcf->references[i]) != strlen(vcf->variants[i]) && strstr(vcf->variants[i], ",")) {
+			printf("%lu %d,%lu: %s / %s\n", i, vcf->chromosomes[i], vcf->positions[i], vcf->references[i], vcf->variants[i]);
+		}
+	}*/
+	for (uint64_t i = 0; i < vcf->length; i++) {
+		uint8_t ref_len = strlen(vcf->references[i]);
+		for (uint64_t j = 0; j < vcf->length; j++) {
+			if (i == j) continue;
+			if (vcf->positions[i] > vcf->positions[j]) continue;
+			uint64_t position_diff = vcf->positions[j] - vcf->positions[i];
+			if (position_diff < ref_len) {
+				printf("1: %lu %d,%lu: %s / %s\n", i,
+						vcf->chromosomes[i], vcf->positions[i],
+						vcf->references[i], vcf->variants[i]);
+				printf("2: %lu %d,%lu: %s / %s\n", j,
+						vcf->chromosomes[j], vcf->positions[j],
+						vcf->references[j], vcf->variants[j]);
+			}
+		}
+	}
+
 	delete vcf;
 
 	return graph;
