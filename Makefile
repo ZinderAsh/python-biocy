@@ -4,7 +4,7 @@ CBUILDDIR=build/src
 CPROGRAMDIR=build
 CTESTDIR=tests
 CSRCDIR=biocy/cpp
-COBJECTS=$(CBUILDDIR)/Graph.o $(CBUILDDIR)/hashing.o $(CBUILDDIR)/KmerFinder.o $(CBUILDDIR)/GFA.o $(CBUILDDIR)/VCF.o
+COBJECTS=$(CBUILDDIR)/Graph.o $(CBUILDDIR)/hashing.o $(CBUILDDIR)/KmerFinder.o $(CBUILDDIR)/GFA.o $(CBUILDDIR)/VCF.o $(CBUILDDIR)/FASTA.o
 CHEADERS=$(CSRCDIR)/node.hpp $(CSRCDIR)/doctest.h
 
 .PHONY: clean clean-build clean-pyc clean-test coverage dist docs help install lint lint/flake8
@@ -113,7 +113,7 @@ install: clean kmer_finder.o ## install the package to the active Python's site-
 
 # C objects and programs
 
-$(CBUILDDIR)/Graph.o: $(CSRCDIR)/Graph.cpp $(CSRCDIR)/Graph.hpp $(CSRCDIR)/node.hpp $(CSRCDIR)/VCF.o
+$(CBUILDDIR)/Graph.o: $(CSRCDIR)/Graph.cpp $(CSRCDIR)/Graph.hpp $(CSRCDIR)/node.hpp $(CBUILDDIR)/VCF.o
 	mkdir -p $(CBUILDDIR)
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
@@ -126,6 +126,10 @@ $(CBUILDDIR)/GFA.o: $(CSRCDIR)/GFA.cpp $(CSRCDIR)/GFA.hpp $(CBUILDDIR)/hashing.o
 	$(CXX) $(CFLAGS) -c -o $@ $<
 
 $(CBUILDDIR)/VCF.o: $(CSRCDIR)/VCF.cpp $(CSRCDIR)/VCF.hpp
+	mkdir -p $(CBUILDDIR)
+	$(CXX) $(CFLAGS) -c -o $@ $<
+
+$(CBUILDDIR)/FASTA.o: $(CSRCDIR)/FASTA.cpp $(CSRCDIR)/FASTA.hpp
 	mkdir -p $(CBUILDDIR)
 	$(CXX) $(CFLAGS) -c -o $@ $<
 

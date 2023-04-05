@@ -5,9 +5,11 @@
 #include <iostream>
 #include <queue>
 #include <vector>
+#include <bits/stdc++.h>
 
 #include "GFA.hpp"
 #include "VCF.hpp"
+#include "FASTA.hpp"
 
 #define LINE_BUF_LEN 1024
 #define DEFAULT_ENCODING "ACGT"
@@ -63,12 +65,14 @@ Graph *Graph::FromGFAFileEncoded(char *filepath, const char *encoding) {
 	return graph;
 }
 
-Graph *Graph::FromFastaVCF(char *fasta_filepath, char *vcf_filepath, uint32_t chromosome) {
+Graph *Graph::FromFastaVCF(char *fasta_filepath, char *vcf_filepath, int16_t chromosome) {
 	return FromFastaVCFEncoded(fasta_filepath, vcf_filepath, chromosome, DEFAULT_ENCODING);
 }
 
-Graph *Graph::FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, uint32_t chromosome, const char *encoding) {
+Graph *Graph::FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, int16_t chromosome, const char *encoding) {
 	VCF *vcf = VCF::ReadFile(vcf_filepath, chromosome);
+	FASTA *fasta = FASTA::ReadFile(fasta_filepath);
+	fasta->GoToChromosome(chromosome);
 
 	Graph *graph = new Graph(encoding);
 
@@ -79,6 +83,7 @@ Graph *Graph::FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, uint
 			printf("%lu %d,%lu: %s / %s\n", i, vcf->chromosomes[i], vcf->positions[i], vcf->references[i], vcf->variants[i]);
 		}
 	}*/
+	/*
 	for (uint64_t i = 0; i < vcf->length; i++) {
 		uint8_t ref_len = strlen(vcf->references[i]);
 		for (uint64_t j = 0; j < vcf->length; j++) {
@@ -95,8 +100,156 @@ Graph *Graph::FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, uint
 			}
 		}
 	}
+	*/
+
+	uint64_t *sorted_variant_indices = (uint64_t *) malloc(sizeof(uint64_t) * vcf->length);
+	for (uint64_t i = 0; i < vcf->length; i++) {
+		sorted_variant_indices[i] = i;
+	}
+	std::sort(sorted_variant_indices, sorted_variant_indices + vcf->length,
+			[&vcf](const uint64_t a, const uint64_t b) -> bool {
+				return vcf->positions[a] < vcf->positions[b];
+			});
+
+	uint64_t reference_pos = 0;
+	uint32_t graph_previous_reference_id = 0;
+	uint64_t variant_idx = 0;
+	uint64_t reference_index = 0;
+
+	uint32_t *variant_to_reference_node_id = (uint32_t *) malloc(sizeof(uint32_t) * vcf->length);
+	uint32_t *variant_to_variant_node_id = (uint32_t *) malloc(sizeof(uint32_t) * vcf->length);
+	memset(variant_to_reference_node_id, 0, sizeof(uint32_t) * vcf->length);
+	memset(variant_to_variant_node_id, 0, sizeof(uint32_t) * vcf->length);
+
+	uint32_t previous_variant_ids[128];
+	uint8_t previous_variant_ids_len = 0;
+	uint32_t next_variant_ids[128];
+	uint8_t next_variant_ids_len = 0;
+
+	uint32_t variants_added = 0;
+	uint32_t variants_skipped_overlap = 0;
+	while (variant_idx < vcf->length) {
+		uint32_t real_variant_idx = sorted_variant_indices[variant_idx];
+		uint64_t variant_pos = vcf->positions[real_variant_idx];
+		variant_idx++;
+		if (variant_idx % 100000 == 0 || variant_idx + 1 == vcf->length) printf("%lu / %lu variants processed\n", variant_idx, vcf->length);
+		if (variant_pos < reference_pos) {
+			//printf("Variant overlap\n");
+			variants_skipped_overlap++;
+		} else {
+			variants_added++;
+			// Read bases and add a reference node leading up to the variant
+			uint64_t to_read = variant_pos - reference_pos;
+			if (to_read > 0) {
+				char *sequence = fasta->ReadNext(to_read);
+				if (sequence == NULL) {
+					printf("No more bases in FASTA (1)\n");
+					break;
+				}
+				uint32_t new_reference_id = graph->AddNode(sequence);
+				(graph->nodes + new_reference_id)->reference = true;
+				(graph->nodes + new_reference_id)->reference_index = reference_index++;
+				if (graph->nodes_len > 1) {
+					graph->AddEdge(graph_previous_reference_id, new_reference_id);
+				}
+				for (uint8_t i = 0; i < previous_variant_ids_len; i++) {
+					graph->AddEdge(previous_variant_ids[i], new_reference_id);
+				}
+				previous_variant_ids_len = 0;
+				graph_previous_reference_id = new_reference_id;
+				reference_pos += to_read;
+			}
+			
+			// Read the reference bases of the variant and add the reference node
+			to_read = strlen(vcf->references[real_variant_idx]);
+			uint32_t variant_reference_id;
+			if (to_read > 0) {
+				char *sequence = fasta->ReadNext(to_read);
+				if (sequence == NULL) {
+					printf("No more bases in FASTA (2)\n");
+					break;
+				}
+				for (uint64_t i = 0; i < to_read; i++) {
+					if ((vcf->references[real_variant_idx][i] | 0x20) != (sequence[i] | 0x20)) {
+						printf("Reference sequence mismatch! %s != %s\n", vcf->references[real_variant_idx], sequence);
+						break;
+					}
+				}
+				variant_reference_id = graph->AddNode(sequence);
+			} else { // Empty node
+				variant_reference_id = graph->AppendEmptyNode();
+			}
+			(graph->nodes + variant_reference_id)->reference = true;
+			(graph->nodes + variant_reference_id)->reference_index = reference_index++;
+			graph->AddEdge(graph_previous_reference_id, variant_reference_id);
+			for (uint8_t i = 0; i < previous_variant_ids_len; i++) {
+				graph->AddEdge(previous_variant_ids[i], variant_reference_id);
+			}
+
+			// Create variant nodes
+			char *variant_string = strdup(vcf->variants[real_variant_idx]);
+			char *tok = strtok(variant_string, ",");
+			while (tok != NULL) {
+				uint32_t tok_len = strlen(tok);
+				uint32_t variant_node_id;
+				if (tok_len > 0) {
+					variant_node_id = graph->AddNode(tok);
+				} else {
+					variant_node_id = graph->AppendEmptyNode();
+				}
+				graph->AddEdge(graph_previous_reference_id, variant_node_id);
+				for (uint8_t i = 0; i < previous_variant_ids_len; i++) {
+					graph->AddEdge(previous_variant_ids[i], variant_node_id);
+				}
+				next_variant_ids[next_variant_ids_len++] = variant_node_id;
+				tok = strtok(NULL, ",");
+			}
+			free(variant_string);
+
+			memcpy(previous_variant_ids, next_variant_ids, sizeof(uint32_t) * next_variant_ids_len);
+			previous_variant_ids_len = next_variant_ids_len;
+			next_variant_ids_len = 0;
+
+			graph_previous_reference_id = variant_reference_id;
+			reference_pos += to_read;
+		}
+	}
+
+	uint64_t remaining = 0;
+	while (true) {
+		char *a = fasta->ReadNext(128);
+		if (a == NULL) break;
+		remaining += strlen(a);
+	}
+	
+	if (remaining > 0) {
+		fasta->GoToChromosome(chromosome);
+		uint64_t to_read = reference_pos;
+		while (to_read > 128) {
+			fasta->ReadNext(128);
+			to_read -= 128;
+		}
+		fasta->ReadNext(to_read);
+		char *sequence = fasta->ReadNext(remaining);
+		uint32_t final_reference_id = graph->AddNode(sequence);
+		if (graph->nodes_len > 1) {
+			graph->AddEdge(graph_previous_reference_id, final_reference_id);
+		}
+		for (uint8_t i = 0; i < previous_variant_ids_len; i++) {
+			graph->AddEdge(previous_variant_ids[i], final_reference_id);
+		}
+	}
+
+	printf("Graph has %u nodes\n", graph->nodes_len);
+	printf("Variants in graph: %u\n", variants_added);
+	printf("Variants skipped due to overlap: %u\n", variants_skipped_overlap);
+
+	free(sorted_variant_indices);
+	free(variant_to_reference_node_id);
+	free(variant_to_variant_node_id);
 
 	delete vcf;
+	delete fasta;
 
 	return graph;
 }
@@ -269,7 +422,7 @@ uint32_t Graph::AddNode(const char *sequence) {
 	new_node->sequences_len = (new_node->length + 31) / 32;
 	if (new_node->sequences_len > 0) {
 		new_node->sequences = (uint64_t *) malloc(sizeof(uint64_t) * new_node->sequences_len);
-		for (uint8_t i = 0; i < new_node->sequences_len; i++) {
+		for (uint32_t i = 0; i < new_node->sequences_len; i++) {
 			uint8_t hash_len = new_node->length - i * 32;
 			if (hash_len > 32) hash_len = 32;
 			const char *offset = sequence + (i * 32);

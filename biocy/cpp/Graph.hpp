@@ -40,8 +40,8 @@ public:
 	static Graph *FromFile(char *filepath);
 	static Graph *FromGFAFile(char *filepath);
 	static Graph *FromGFAFileEncoded(char *filepath, const char *encoding);
-	static Graph *FromFastaVCF(char *fasta_filepath, char *vcf_filepath, uint32_t chromosome);
-	static Graph *FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, uint32_t chromosome, const char *encoding);
+	static Graph *FromFastaVCF(char *fasta_filepath, char *vcf_filepath, int16_t chromosome);
+	static Graph *FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, int16_t chromosome, const char *encoding);
 
 	struct node *Get(uint32_t node_id) {
 		return nodes + node_id;
@@ -97,6 +97,7 @@ public:
 
 	uint32_t AddNode(const char *sequence);
 	void AddEdge(uint32_t from_node_id, uint32_t to_node_id);
+	uint32_t AppendEmptyNode();
 
 private:
 	void SetEncoding(const char *encoding);
@@ -108,7 +109,6 @@ private:
 	bool NodeHasEdge(uint32_t node_id, uint32_t edge_id);
 	void InitializeEmptyNode(uint32_t node_id);
 	uint32_t CreateEmptyNodes();
-	uint32_t AppendEmptyNode();
 	void MoveEdgesToIntermediateNode(uint32_t from_node_id, uint32_t to_node_id, uint32_t mid_node_id);
 };
 

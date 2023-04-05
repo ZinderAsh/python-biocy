@@ -20,10 +20,10 @@ private:
 	char line_buffer[2048];
 	char chromosome_buffer[64];
 	char position_buffer[64];
-	char reference_buffer[64];
-	char variant_buffer[64];
-	char dummy_buffer[64];
-	uint8_t id_buffer_length;
+	char reference_buffer[512];
+	char variant_buffer[512];
+	char dummy_buffer[512];
+	uint16_t id_buffer_length;
 
 public:
 	~VCF() {
@@ -59,21 +59,9 @@ private:
 	void InitializeArrays();
 	uint64_t ReadChromosomeRowCount(int16_t chromosome);
 	void ReadChromosome(int16_t chromosome);
-	void AddVariant(uint64_t index, int16_t chromosome, uint64_t position, char *reference, uint8_t ref_len, char *variant, uint8_t var_len);
-	void AddSingleVariant(uint64_t index, int16_t chromosome, uint64_t position, char *reference, uint8_t ref_len, char *variant, uint8_t var_len);
-	void AddMultiVariant(uint64_t index, int16_t chromosome, uint64_t position, char *reference, uint8_t ref_len, char *variant_buffer, uint8_t var_len);
-	
-	/*
-	void ReadNodeCountAndIDRange();
-	void InitializeArrays();
-	void ReadSequences();
-	void ReadReferenceNodes();
-	void CountEdges();
-	void InitializeEdges();
-	void ReadEdges();
-	int64_t ReadNextID();
-	uint32_t GetMappedID(uint32_t);
-	*/
+	void AddVariant(uint64_t index, int16_t chromosome, uint64_t position, char *reference, uint16_t ref_len, char *variant, uint16_t var_len);
+	void AddSingleVariant(uint64_t index, int16_t chromosome, uint64_t position, char *reference, uint16_t ref_len, char *variant, uint16_t var_len);
+	void AddMultiVariant(uint64_t index, int16_t chromosome, uint64_t position, char *reference, uint16_t ref_len, char *variant_buffer, uint16_t var_len);
 };
 
 #endif

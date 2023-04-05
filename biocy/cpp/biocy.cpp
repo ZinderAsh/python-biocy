@@ -7,10 +7,29 @@
 
 #include "KmerFinder.hpp"
 #include "node.hpp"
+#include "VCF.hpp"
+#include "FASTA.hpp"
 
 int main(int argc, char** argv) {
-	if (argc != 3) return 1;
+	if (argc != 4) return 1;
 	Graph *graph = Graph::FromFastaVCF(argv[1], argv[2], 21);
+	graph->ToFile(argv[3]);
+
+	uint8_t k = 31;
+	KmerFinder *kf = new KmerFinder(graph, k, 200);
+	kf->Find();
+	printf("Found %lu kmers\n", kf->found_count);
+	delete kf;
+
+	delete graph;
+
+	graph = Graph::FromFile(argv[3]);
+
+	kf = new KmerFinder(graph, k, 200);
+	kf->Find();
+	printf("Found %lu kmers\n", kf->found_count);
+	delete kf;
+
 	delete graph;
 	/*
 	Graph *graph = new Graph("ACGT");

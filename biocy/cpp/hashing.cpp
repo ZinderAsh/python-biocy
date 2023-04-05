@@ -14,12 +14,7 @@ void fill_map_by_encoding(uint8_t *map, const char *encoding) {
 
 // Hashes a string of bases (max 31) to a 2-bit encoded long long
 uint64_t hash_min_kmer_by_map(const char *str, uint8_t k, uint8_t *map) {
-	uint64_t hashed = 0;
-	for (uint8_t i = 0; i < k; i++) {
-		uint64_t val = map[str[i]];
-		hashed |= val << ((k - i - 1) * 2);
-	}
-	return hashed;
+	return hash_max_kmer_by_map(str, k, map) >> (64 - k * 2);
 }
 
 // Same as hash_kmer, except the bits are left-aligned in the long long.
