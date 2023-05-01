@@ -13,9 +13,10 @@ def get_variant_signatures(obgraph, variant_to_nodes, counter, k=31):
     counter = Counter(counter._keys.ravel().copy(), counter._values.ravel().copy())
     counter._values = counter._values.astype(np.int64)
 
-    kmer_finder = KmerFinder(graph, k, max_variant_nodes=4)
-    #kmer_finder.set_kmer_frequency_index(counter)
+    kmer_finder = KmerFinder(graph, k, reverse_kmers=True)
+    kmer_finder.set_frequency_index(counter)
 
-    results = kmer_finder.find_variant_signatures(ref_nodes, var_nodes, reverse_kmers=True)
+    results = kmer_finder.find_variant_signatures(
+            ref_nodes, var_nodes, max_variant_nodes=20, align_windows=True, minimize_overlaps=True)
 
     return results

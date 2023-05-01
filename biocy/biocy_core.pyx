@@ -1,6 +1,7 @@
 # distutils: language = c++
 
 cimport biocy.biocpp as cpp
+cimport biocy.hashing as hashing
 
 try:
     import obgraph as ob

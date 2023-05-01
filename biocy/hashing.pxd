@@ -11,3 +11,4 @@ cdef extern from "cpp/hashing.hpp":
     uint64_t pack_max_kmer(char *arr, uint8_t k)
     uint64_t pack_kmer(char *arr, uint8_t k)
     uint64_t pack_max_kmer_with_offset(char *arr, uint32_t offset, uint8_t k)
+    uint64_t reverse_kmer(uint64_t hash, uint8_t k)

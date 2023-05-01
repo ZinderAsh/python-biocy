@@ -1,28 +1,30 @@
 # distutils: language = c++
 
+from libcpp cimport bool
 from libcpp.unordered_map cimport unordered_map
+from cython.operator import dereference, postincrement
 from npstructures import RaggedArray, Counter
 
 cdef class KmerFinder:
     cdef Graph graph
     cdef int k
-    cdef int max_variant_nodes
+    cdef bool reverse_kmers
     cdef public object _kmer_frequency_index
 
-    def __cinit__(self, Graph graph, int k, int max_variant_nodes=255):
+    def __cinit__(self, Graph graph, int k, bool reverse_kmers=False):
         if k < 1 or k > 31:
             raise "KmerFinder: k must be between 1 and 31 inclusive"
         self.graph = graph
         self.k = k
-        self.max_variant_nodes = max_variant_nodes
+        self.reverse_kmers = reverse_kmers
         self._kmer_frequency_index = None
 
-    def find(self, reverse_kmers=False, include_spanning_nodes=False):
+    def find(self, bool include_spanning_nodes=False, int max_variant_nodes=255):
         print("Finding kmers...")
-        cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, self.max_variant_nodes)
+        cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, max_variant_nodes)
         kf.SetFlag(cpp.FLAG_ONLY_SAVE_INITIAL_NODES, not include_spanning_nodes)
         kf.Find()
-        if reverse_kmers:
+        if self.reverse_kmers:
             kf.ReverseFoundKmers()
         print("Copying to numpy arrays")
         kmers = np.empty((kf.found_count,), dtype=np.uint64)
@@ -36,20 +38,15 @@ cdef class KmerFinder:
         return kmers, nodes
 
     def find_variant_signatures(self, reference_node_ids, variant_node_ids,
-                                reverse_kmers=False, minimize_overlaps=False, align_windows=False):
+                                int max_variant_nodes=255, bool minimize_overlaps=False, bool align_windows=False):
         if len(reference_node_ids) != len(variant_node_ids):
             raise "find_identifying_windows_for_variants: reference_node_ids and variant_node_ids must have the same length."
-        cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, self.max_variant_nodes)
+        cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, max_variant_nodes)
         if self._kmer_frequency_index is not None:
             print("Creating frequency index from Counter...")
             self.set_kmer_finder_frequency_index(kf)
         else:
-            print("Finding kmers...")
-            kf.SetFlag(cpp.FLAG_ONLY_SAVE_INITIAL_NODES, True)
-            kf.Find()
-            print("Creating frequency index...")
-            kf.SetKmerFrequencyIndex(kf.CreateKmerFrequencyIndex())
-            kf.SetFlag(cpp.FLAG_ONLY_SAVE_INITIAL_NODES, False)
+            self.create_frequency_index(max_variant_nodes=max_variant_nodes)
         print("Finding windows...")
         cdef cpp.VariantWindow *window
         cdef uint32_t i
@@ -71,7 +68,7 @@ cdef class KmerFinder:
         for i in range(pair_count):
             window = kf.FindVariantSignaturesWithFinder(reference_node_ids[i], variant_node_ids[i], window_finder)
             
-            if reverse_kmers:
+            if self.reverse_kmers:
                 window.ReverseKmers(kf.k)
 
             reference_kmer_lens[i] = window.reference_kmers_len
@@ -103,15 +100,49 @@ cdef class KmerFinder:
         variant_kmers = RaggedArray(variant_kmers, shape=variant_kmer_lens, dtype=np.uint64)
         
 
-        return reference_kmers, variant_kmers
+        return reference_kmers, variant_kmers 
 
-    def set_kmer_frequency_index(self, frequency_index):
+    def create_frequency_index(self, max_variant_nodes=255, set_index=True):
+        cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, max_variant_nodes)
+        cdef unordered_map[uint64_t, uint32_t] frequency_index
+
+        print("Finding kmers...")
+        kf.SetFlag(cpp.FLAG_ONLY_SAVE_INITIAL_NODES, True)
+        kf.Find()
+        if self.reverse_kmers:
+            kf.ReverseFoundKmers()
+
+        print("Creating frequency index...")
+        frequency_index = kf.CreateKmerFrequencyIndex()
+        del kf
+
+        py_frequency_index = {}
+        cdef unordered_map[uint64_t, uint32_t].iterator it = frequency_index.begin()
+        while it != frequency_index.end():
+            py_frequency_index[dereference(it).first] = dereference(it).second
+            postincrement(it)
+
+        if set_index:
+            self._kmer_frequency_index = py_frequency_index
+
+        return py_frequency_index
+        
+
+    def set_frequency_index(self, frequency_index):
         if isinstance(frequency_index, Counter):
             self._kmer_frequency_index = frequency_index
+        elif isinstance(frequency_index, dict):
+            self._kmer_frequency_index = frequency_index
         else:
-            raise "A frequency index is required to be a Counter from npstructures."
+            raise "A frequency index is required to be a Python dictionary or a Counter from npstructures."
 
     cdef set_kmer_finder_frequency_index(self, cpp.KmerFinder *kf):
+        if isinstance(self._kmer_frequency_index, Counter):
+            self.set_kmer_finder_frequency_index_from_counter(kf)
+        elif isinstance(self._kmer_frequency_index, dict):
+            self.set_kmer_finder_frequency_index_from_dict(kf)
+
+    cdef set_kmer_finder_frequency_index_from_counter(self, cpp.KmerFinder *kf):
         cdef unordered_map[uint64_t, uint32_t] frequency_index;
         
         kmer_frequency_index_keys = np.ascontiguousarray(self._kmer_frequency_index._keys.ravel()).astype(np.uint64)
@@ -122,7 +153,23 @@ cdef class KmerFinder:
 
         cdef uint64_t i
         cdef uint64_t key_count = len(kmer_frequency_index_keys)
+        cdef uint64_t key
         for i in range(key_count):
-            frequency_index[c_keys[i]] = c_values[i]
+            key = c_keys[i]
+            if self.reverse_kmers:
+                key = hashing.reverse_kmer(key, self.k)
+            frequency_index[key] = c_values[i]
+        
+        kf.SetKmerFrequencyIndex(frequency_index)
+
+    cdef set_kmer_finder_frequency_index_from_dict(self, cpp.KmerFinder *kf):
+        cdef unordered_map[uint64_t, uint32_t] frequency_index;
+        
+        cdef uint64_t key
+        cdef uint32_t value
+        for key, value in self._kmer_frequency_index.items():
+            if self.reverse_kmers:
+                key = hashing.reverse_kmer(key, self.k)
+            frequency_index[key] = value
         
         kf.SetKmerFrequencyIndex(frequency_index)
