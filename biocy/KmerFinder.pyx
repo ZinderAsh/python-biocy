@@ -53,14 +53,11 @@ cdef class KmerFinder:
             del kf
             return None
         kmers = np.empty((kf.found_count,), dtype=np.uint64)
-        nodes = np.empty((kf.found_count,), dtype=np.uint32)
         cdef cnp.ndarray[unsigned long long, ndim=1, mode="c"] c_kmers = kmers
-        cdef cnp.ndarray[unsigned int, ndim=1, mode="c"] c_nodes = nodes
         memcpy(c_kmers.data, kf.found_kmers, sizeof(unsigned long long) * kf.found_count)
-        memcpy(c_nodes.data, kf.found_nodes, sizeof(unsigned int) * kf.found_count)
         del kf
         #print("Done")
-        return kmers, nodes
+        return kmers
 
     def find_variant_signatures(self, reference_node_ids, variant_node_ids,
                                 int max_variant_nodes=255, bool minimize_overlaps=False, bool align_windows=False):

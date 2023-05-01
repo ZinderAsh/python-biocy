@@ -27,6 +27,8 @@ KmerFinder::KmerFinder(Graph *graph, uint8_t k, uint8_t max_variant_nodes) : k(k
 	flags = 0;
 	filters = 0;
 	filter_node_id = 0;
+
+	Reset();
 }
 
 void KmerFinder::Reset() {
@@ -44,6 +46,8 @@ void KmerFinder::Reset() {
 	};
 	found_count = 0;
 	found_len = 0;
+	found_window_count = 0;
+	found_window_len = 0;
 }
 
 void KmerFinder::InitializeFoundArrays() {	
@@ -289,6 +293,7 @@ void KmerFinder::FindKmersForVariant(uint32_t reference_node_id, uint32_t varian
 }
 
 void KmerFinder::FindKmersSpanningNode(uint32_t center_node_id) {
+	if (found_window_len == 0 && found_len == 0) InitializeFoundArrays();
 	SetFilter(FILTER_NODE_ID, center_node_id);
 
 	std::vector<uint32_t> visited;
