@@ -21,7 +21,7 @@ test_requirements = ['pytest>=3', ]
 extensions = [
     Extension("biocy_core",
               ["biocy/biocy_core.pyx",
-               "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/VCF.cpp", "biocy/cpp/hashing.cpp"],
+               "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/VCF.cpp", "biocy/cpp/FASTA.cpp", "biocy/cpp/hashing.cpp"],
               include_dirs=[numpy.get_include()]),
     #Extension("Graph",
     #          ["biocy/Graph.pyx",

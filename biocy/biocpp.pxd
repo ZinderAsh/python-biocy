@@ -1,4 +1,4 @@
-from libc.stdint cimport uint8_t, uint32_t, uint64_t
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
 from libcpp.unordered_map cimport unordered_map
 
 from libcpp cimport bool
@@ -45,14 +45,16 @@ cdef extern from "cpp/Graph.hpp":
 
 cdef extern from "cpp/KmerFinder.hpp":
     enum: FILTER_NODE_ID
+    enum: FLAG_ALIGN_SIGNATURE_WINDOWS
+    enum: FLAG_MINIMIZE_SIGNATURE_OVERLAP
     enum: FLAG_ONLY_SAVE_INITIAL_NODES
     enum: FLAG_SAVE_WINDOWS
 
     cdef cppclass VariantWindow:
         uint64_t *reference_kmers;
         uint64_t *variant_kmers;
-        uint8_t reference_kmers_len;
-        uint8_t variant_kmers_len;
+        uint16_t reference_kmers_len;
+        uint16_t variant_kmers_len;
         uint32_t max_frequency;
 
         void ReverseKmers(uint8_t k)

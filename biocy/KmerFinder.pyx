@@ -17,9 +17,10 @@ cdef class KmerFinder:
         self.max_variant_nodes = max_variant_nodes
         self._kmer_frequency_index = None
 
-    def find(self, reverse_kmers=False):
+    def find(self, reverse_kmers=False, include_spanning_nodes=False):
         print("Finding kmers...")
         cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, self.max_variant_nodes)
+        kf.SetFlag(cpp.FLAG_ONLY_SAVE_INITIAL_NODES, not include_spanning_nodes)
         kf.Find()
         if reverse_kmers:
             kf.ReverseFoundKmers()
@@ -34,7 +35,8 @@ cdef class KmerFinder:
         print("Done")
         return kmers, nodes
 
-    def find_variant_signatures(self, reference_node_ids, variant_node_ids, reverse_kmers=False):
+    def find_variant_signatures(self, reference_node_ids, variant_node_ids,
+                                reverse_kmers=False, minimize_overlaps=False, align_windows=False):
         if len(reference_node_ids) != len(variant_node_ids):
             raise "find_identifying_windows_for_variants: reference_node_ids and variant_node_ids must have the same length."
         cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, self.max_variant_nodes)
@@ -62,6 +64,8 @@ cdef class KmerFinder:
         reference_kmer_lens = np.empty((pair_count,), dtype=np.uint32)
         variant_kmer_lens = np.empty((pair_count,), dtype=np.uint32)
         
+        kf.SetFlag(cpp.FLAG_MINIMIZE_SIGNATURE_OVERLAP, minimize_overlaps)
+        kf.SetFlag(cpp.FLAG_ALIGN_SIGNATURE_WINDOWS, align_windows)
         cdef cpp.KmerFinder *window_finder = kf.CreateWindowFinder()
 
         for i in range(pair_count):
@@ -92,6 +96,7 @@ cdef class KmerFinder:
             
             del window
 
+        del window_finder
         del kf
         
         reference_kmers = RaggedArray(reference_kmers, shape=reference_kmer_lens, dtype=np.uint64)

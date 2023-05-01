@@ -6,10 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-void add_found(struct kmer_finder *kf, unsigned long node_id, unsigned long long kmer);
-void get_kmers(struct kmer_finder *kf, unsigned long node_id);
-void get_kmers_recursive(struct kmer_finder *kf, unsigned long node_id, unsigned char kmer_len, unsigned char kmer_ext_len);
-unsigned long long full_mask = -1L;
+uint64_t full_mask = -1L;
 
 KmerFinder::KmerFinder(Graph *graph, uint8_t k, uint8_t max_variant_nodes) : k(k), max_variant_nodes(max_variant_nodes) {
 	this->graph = graph;
@@ -27,6 +24,7 @@ KmerFinder::KmerFinder(Graph *graph, uint8_t k, uint8_t max_variant_nodes) : k(k
 	path_buffer = (uint32_t *) malloc(sizeof(uint32_t) * k * 4);
 	kmer_position_buffer = (uint16_t *) malloc(sizeof(uint16_t) * k * 4);
 	
+	flags = 0;
 	filters = 0;
 	filter_node_id = 0;
 }
@@ -51,7 +49,7 @@ void KmerFinder::Reset() {
 void KmerFinder::InitializeFoundArrays() {	
 	// Start found arrays with node number of slots (they are resized automatically when necessary)
 	// This may be changed to be the length of the reference genome.
-	if (filters & FLAG_SAVE_WINDOWS) {
+	if (flags & FLAG_SAVE_WINDOWS) {
 		found_window_len = k * 2;
 		found_window_count = 0;
 		found_windows = (struct kmer_window *) malloc(sizeof(struct kmer_window) * found_window_len);
@@ -102,13 +100,14 @@ uint32_t KmerFinder::GetWindowOverlap(std::vector<VariantWindow *> *windows, uin
 	return overlap;
 }
 
-VariantWindow *KmerFinder::FindVariantSignaturesWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
+VariantWindow *KmerFinder::FindAlignedSignaturesWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
+	bool minimize_overlap = (flags & FLAG_MINIMIZE_SIGNATURE_OVERLAP);
 	auto windows = FindWindowsForVariantWithFinder(reference_node_id, variant_node_id, kf);
 	uint32_t min_frequency = windows[0]->max_frequency;
-	uint32_t min_overlap = 0; //GetWindowOverlap(&windows, 0);
+	uint32_t min_overlap = (minimize_overlap ? GetWindowOverlap(&windows, 0) : 0);
 	uint32_t min_window_index = 0;
 	for (uint32_t i = 1; i < windows.size(); i++) {
-		uint32_t overlap = 0; //GetWindowOverlap(&windows, i);
+		uint32_t overlap = (minimize_overlap ? GetWindowOverlap(&windows, i) : 0);
 		if (overlap < min_overlap) {
 			min_overlap = overlap;
 			min_frequency = windows[i]->max_frequency;
@@ -123,6 +122,75 @@ VariantWindow *KmerFinder::FindVariantSignaturesWithFinder(uint32_t reference_no
 		if (i != min_window_index) delete windows[i];
 	}
 	return windows[min_window_index];
+}
+
+VariantWindow *KmerFinder::FindUnalignedSignaturesWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
+	kf->FindKmersForVariant(reference_node_id, variant_node_id);
+
+	struct kmer_window *found_window_end = (kf->found_windows + kf->found_window_count);
+	struct kmer_window *variant_window_start = kf->found_windows;
+	while (variant_window_start < found_window_end) {
+		if (variant_window_start->node_id == variant_node_id) break;
+		variant_window_start++;
+	}
+
+	if (variant_window_start == kf->found_windows) {
+		printf("FATAL: Failed to find windows for the variant node.\n");
+		return NULL;
+	}
+
+	struct kmer_window *ref_window, *var_window;
+	struct kmer_window *best_ref_window = kf->found_windows;
+	struct kmer_window *best_var_window = variant_window_start;
+	uint32_t min_ref_overlap = 99999, min_var_overlap = 99999;
+
+	for (ref_window = kf->found_windows; ref_window < variant_window_start; ref_window++) {
+		uint32_t overlap = 0;
+		if (flags & FLAG_MINIMIZE_SIGNATURE_OVERLAP) {
+			for (var_window = variant_window_start; var_window < found_window_end; var_window++) {
+				for (uint32_t i = 0; i < ref_window->length; i++) {
+					for (uint32_t j = 0; j < var_window->length; j++) {
+						if (ref_window->kmers[i] == var_window->kmers[j]) overlap++;
+					}
+				}
+			}
+		}
+		if (overlap < min_ref_overlap) {
+			best_ref_window = ref_window;
+			min_ref_overlap = overlap;
+		} else if (overlap == min_ref_overlap && ref_window->max_frequency < best_ref_window->max_frequency) {
+			best_ref_window = ref_window;
+		}
+	}
+
+	for (var_window = variant_window_start; var_window < found_window_end; var_window++) {
+		uint32_t overlap = 0;
+		if (flags & FLAG_MINIMIZE_SIGNATURE_OVERLAP) {
+			for (ref_window = kf->found_windows; ref_window < variant_window_start; ref_window++) {
+				for (uint32_t i = 0; i < var_window->length; i++) {
+					for (uint32_t j = 0; j < ref_window->length; j++) {
+						if (var_window->kmers[i] == ref_window->kmers[j]) overlap++;
+					}
+				}
+			}
+		}
+		if (overlap < min_var_overlap) {
+			best_var_window = var_window;
+			min_var_overlap = overlap;
+		} else if (overlap == min_var_overlap && var_window->max_frequency < best_var_window->max_frequency) {
+			best_var_window = var_window;
+		}
+	}
+
+	return new VariantWindow(best_ref_window, best_var_window);
+}
+
+VariantWindow *KmerFinder::FindVariantSignaturesWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf) {
+	if (flags & FLAG_ALIGN_SIGNATURE_WINDOWS) {
+		return FindAlignedSignaturesWithFinder(reference_node_id, variant_node_id, kf);
+	} else {
+		return FindUnalignedSignaturesWithFinder(reference_node_id, variant_node_id, kf);
+	}
 }
 
 VariantWindow *KmerFinder::FindVariantSignatures(uint32_t reference_node_id, uint32_t variant_node_id) {
@@ -141,7 +209,7 @@ KmerFinder *KmerFinder::CreateWindowFinder() {
 		kmer_frequency_index = CreateKmerFrequencyIndex();
 	}
 	kf->SetKmerFrequencyIndex(kmer_frequency_index);
-	kf->SetFilter(FLAG_SAVE_WINDOWS, true);
+	kf->SetFlag(FLAG_SAVE_WINDOWS, true);
 	return kf;
 }
 
@@ -313,7 +381,7 @@ bool KmerFinder::AddFoundWindowKmer(uint32_t node_id, uint64_t kmer, uint32_t st
 bool KmerFinder::AddNodeFoundKmer(uint32_t node_id, uint64_t kmer, uint32_t start_position, uint16_t node_kmer_position) {
 	// Check filters
 	if (filters & FILTER_NODE_ID && node_id != filter_node_id) return false;
-	if (filters & FLAG_SAVE_WINDOWS) {
+	if (flags & FLAG_SAVE_WINDOWS) {
 		return AddFoundWindowKmer(node_id, kmer, start_position, node_kmer_position);
 	}
 	// Resize found arrays if they are full
@@ -461,7 +529,7 @@ uint64_t KmerFinder::FindKmersExtendedByEdge(uint32_t node_id, uint8_t kmer_len,
 				kmer_hash = ((kmer_buffer << kmer_ext_len * 2) |
 						(kmer_buffer_ext >> (64 - kmer_ext_len * 2))) & kmer_mask;
 				uint16_t nodes_to_save = path_buffer_len;
-				if (filters & FLAG_ONLY_SAVE_INITIAL_NODES) nodes_to_save = 1;
+				if (flags & FLAG_ONLY_SAVE_INITIAL_NODES) nodes_to_save = 1;
 				// Add the kmer to the found array for every node in the path
 				for (uint16_t i = 0; i < nodes_to_save; i++) {
 					uint16_t kmer_position = kmer_position_buffer[i];

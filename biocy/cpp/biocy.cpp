@@ -11,14 +11,16 @@
 #include "FASTA.hpp"
 
 int main(int argc, char** argv) {
+	/*
 	if (argc != 4) return 1;
 	Graph *graph = Graph::FromFastaVCF(argv[1], argv[2], 21);
-	graph->ToFile(argv[3]);
+	//graph->ToFile(argv[3]);
 
 	uint8_t k = 31;
 	KmerFinder *kf = new KmerFinder(graph, k, 200);
 	kf->Find();
 	printf("Found %lu kmers\n", kf->found_count);
+	kf->FindVariantSignatures();
 	delete kf;
 
 	delete graph;
@@ -31,7 +33,8 @@ int main(int argc, char** argv) {
 	delete kf;
 
 	delete graph;
-	/*
+	*/
+	
 	Graph *graph = new Graph("ACGT");
 
 	uint32_t node_0 = graph->AddNode("ACTGACTGACTG");
@@ -58,25 +61,19 @@ int main(int argc, char** argv) {
 	graph->AddEdge(node_5, node_6);
 
 	graph->AddInEdges();
-
-	for (uint32_t i = 0; i < graph->nodes_len; i++) {
-		printf("nodes_in:");
-		struct node *n = graph->Get(i);
-		for (uint8_t j = 0; j < n->edges_in_len; j++) {
-			printf(" %u", n->edges_in[j]);
-		}
-		printf("\n");
-	}
-
-	return 0;
 	
 	uint8_t k = 5;
 	KmerFinder *kf = new KmerFinder(graph, k, 31);
-	kf->Find();
-	auto windows = kf->FindWindowsForVariant(node_4, node_5);
+	//kf->Find();
+	//auto windows = kf->FindWindowsForVariant(node_4, node_5);
+	kf->SetFlag(FLAG_ALIGN_SIGNATURE_WINDOWS, false);
 	VariantWindow *min_window = kf->FindVariantSignatures(node_4, node_5);
 	kf->FindKmersForVariant(node_4, node_5);
-	*/
+
+	delete min_window;
+	delete kf;
+	delete graph;
+	
 	/*
 	printf("window kmers\n");
 	for (uint64_t i = 0; i < kf->found_count; i++) {

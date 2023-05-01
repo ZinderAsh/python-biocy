@@ -9,6 +9,8 @@
 #include <vector>
 
 #define FILTER_NODE_ID 1
+#define FLAG_ALIGN_SIGNATURE_WINDOWS 1 << 4
+#define FLAG_MINIMIZE_SIGNATURE_OVERLAP 1 << 5
 #define FLAG_ONLY_SAVE_INITIAL_NODES 1 << 6
 #define FLAG_SAVE_WINDOWS 1 << 7
 
@@ -52,6 +54,7 @@ private:
 	uint64_t kmer_mask;
 	uint8_t kmer_buffer_shift;
 	uint8_t variant_counter;
+	uint8_t flags;
 	uint8_t filters;
 	uint32_t filter_node_id;
 	std::unordered_map<uint64_t, uint32_t> kmer_frequency_index;
@@ -83,6 +86,8 @@ public:
 	std::vector<VariantWindow *> FindWindowsForVariantWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf);
 	VariantWindow *FindVariantSignatures(uint32_t reference_node_id, uint32_t variant_node_id);
 	VariantWindow *FindVariantSignaturesWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf);
+	VariantWindow *FindAlignedSignaturesWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf);
+	VariantWindow *FindUnalignedSignaturesWithFinder(uint32_t reference_node_id, uint32_t variant_node_id, KmerFinder *kf);
 	uint32_t GetWindowOverlap(std::vector<VariantWindow *> *windows, uint32_t window_index);
 	void ReverseFoundKmers();
 	std::unordered_map<uint64_t, uint32_t> CreateKmerFrequencyIndex();
@@ -102,7 +107,7 @@ public:
 		filters &= ~filter;
 	}
 	void SetFlag(uint8_t flag, bool value) {
-		filters = value ? (filters | flag) : (filters & ~flag);
+		flags = value ? (flags | flag) : (flags & ~flag);
 	}
 	void SetKmerFrequencyIndex(std::unordered_map<uint64_t, uint32_t> index) {
 		kmer_frequency_index = index;
@@ -122,8 +127,8 @@ class VariantWindow {
 public:
 	uint64_t *reference_kmers;
 	uint64_t *variant_kmers;
-	uint8_t reference_kmers_len;
-	uint8_t variant_kmers_len;
+	uint16_t reference_kmers_len;
+	uint16_t variant_kmers_len;
 	uint32_t max_frequency;
 	
 	VariantWindow(struct kmer_window *ref, struct kmer_window *var) {

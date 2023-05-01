@@ -79,7 +79,7 @@ def compare_kmer_node_lists(kmers_a, nodes_a, kmers_b, nodes_b, k, print_lists=F
 def test_kmer_index_against_kage(nodes, edges, ref, k, max_var):
     graph = Graph.from_sequence_edge_lists(nodes, edges, ref=ref)
     kmer_finder = KmerFinder(graph, k, max_variant_nodes=max_var)
-    res_kmers, res_nodes = kmer_finder.find(reverse_kmers=True)
+    res_kmers, res_nodes = kmer_finder.find(reverse_kmers=True, include_spanning_nodes=True)
     ob_node_sequences = {}
     ob_edges = {}
     ob_linear_ref_nodes = []
@@ -146,7 +146,7 @@ def test_kmer_index_against_kage(nodes, edges, ref, k, max_var):
 def test_kmer_empty_nodes(nodes, edges, ref, k, max_var, expected_nodes, expected_kmers):
     graph = Graph.from_sequence_edge_lists(nodes, edges, ref=ref)
     kmer_finder = KmerFinder(graph, k, max_variant_nodes=max_var)
-    res_kmers, res_nodes = kmer_finder.find()
+    res_kmers, res_nodes = kmer_finder.find(include_spanning_nodes=True)
     compare_kmer_node_lists(res_kmers, res_nodes, expected_kmers, expected_nodes, k)
 
 @pytest.mark.slow
@@ -163,7 +163,7 @@ def test_obgraph_against_kage_big_graph(file, k, max_var):
     obgraph = OBGraph.from_file(file)
     graph = Graph.from_obgraph(obgraph)
     kmer_finder = KmerFinder(graph, k, max_variant_nodes=max_var)
-    res_kmers, res_nodes = kmer_finder.find()
+    res_kmers, res_nodes = kmer_finder.find(reverse_kmers=True, include_spanning_nodes=True)
     fname = f'tests/data/kage_results_{k}mer_{max_var}var.txt'
     ob_kmers, ob_nodes = [], []
     if exists(fname):
