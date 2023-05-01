@@ -41,6 +41,27 @@ cdef class KmerFinder:
         #print("Done")
         return kmers, nodes
 
+    def find_kmers_spanning_node(self, int node_id, int max_variant_nodes=255, bool stdout=False):
+        #print("Finding kmers...")
+        cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, max_variant_nodes)
+        kf.SetFlag(cpp.FLAG_TO_STDOUT, stdout)
+        kf.FindKmersSpanningNode(node_id)
+        if self.reverse_kmers:
+            kf.ReverseFoundKmers()
+        #print("Copying to numpy arrays")
+        if stdout:
+            del kf
+            return None
+        kmers = np.empty((kf.found_count,), dtype=np.uint64)
+        nodes = np.empty((kf.found_count,), dtype=np.uint32)
+        cdef cnp.ndarray[unsigned long long, ndim=1, mode="c"] c_kmers = kmers
+        cdef cnp.ndarray[unsigned int, ndim=1, mode="c"] c_nodes = nodes
+        memcpy(c_kmers.data, kf.found_kmers, sizeof(unsigned long long) * kf.found_count)
+        memcpy(c_nodes.data, kf.found_nodes, sizeof(unsigned int) * kf.found_count)
+        del kf
+        #print("Done")
+        return kmers, nodes
+
     def find_variant_signatures(self, reference_node_ids, variant_node_ids,
                                 int max_variant_nodes=255, bool minimize_overlaps=False, bool align_windows=False):
         if len(reference_node_ids) != len(variant_node_ids):

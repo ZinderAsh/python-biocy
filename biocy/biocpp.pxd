@@ -70,7 +70,8 @@ cdef extern from "cpp/KmerFinder.hpp":
         uint64_t found_count
 
         void Find()
-        void ReverseFoundKmers() 
+        void FindKmersSpanningNode(uint32_t center_node_id)
+        void ReverseFoundKmers()
 
         void SetFilter(uint8_t, uint64_t)
         void RemoveFilter(uint8_t)
