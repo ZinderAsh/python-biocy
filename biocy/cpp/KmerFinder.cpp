@@ -49,6 +49,7 @@ void KmerFinder::Reset() {
 void KmerFinder::InitializeFoundArrays() {	
 	// Start found arrays with node number of slots (they are resized automatically when necessary)
 	// This may be changed to be the length of the reference genome.
+	if (flags & FLAG_TO_STDOUT) return;
 	if (flags & FLAG_SAVE_WINDOWS) {
 		found_window_len = k * 2;
 		found_window_count = 0;
@@ -381,6 +382,10 @@ bool KmerFinder::AddFoundWindowKmer(uint32_t node_id, uint64_t kmer, uint32_t st
 bool KmerFinder::AddNodeFoundKmer(uint32_t node_id, uint64_t kmer, uint32_t start_position, uint16_t node_kmer_position) {
 	// Check filters
 	if (filters & FILTER_NODE_ID && node_id != filter_node_id) return false;
+	if (flags & FLAG_TO_STDOUT) {
+		printf("%lu\t%u:%u:%u\n", kmer, node_id, start_position, node_kmer_position);
+		return true;
+	}
 	if (flags & FLAG_SAVE_WINDOWS) {
 		return AddFoundWindowKmer(node_id, kmer, start_position, node_kmer_position);
 	}

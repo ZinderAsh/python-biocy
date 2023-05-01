@@ -9,6 +9,8 @@
 #include <vector>
 
 #define FILTER_NODE_ID 1
+
+#define FLAG_TO_STDOUT 1
 #define FLAG_ALIGN_SIGNATURE_WINDOWS 1 << 4
 #define FLAG_MINIMIZE_SIGNATURE_OVERLAP 1 << 5
 #define FLAG_ONLY_SAVE_INITIAL_NODES 1 << 6
@@ -54,9 +56,12 @@ private:
 	uint64_t kmer_mask;
 	uint8_t kmer_buffer_shift;
 	uint8_t variant_counter;
+
 	uint8_t flags;
+
 	uint8_t filters;
 	uint32_t filter_node_id;
+
 	std::unordered_map<uint64_t, uint32_t> kmer_frequency_index;
 
 public:

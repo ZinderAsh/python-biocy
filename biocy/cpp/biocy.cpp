@@ -64,13 +64,14 @@ int main(int argc, char** argv) {
 	
 	uint8_t k = 5;
 	KmerFinder *kf = new KmerFinder(graph, k, 31);
-	//kf->Find();
+	kf->SetFlag(FLAG_TO_STDOUT, true);
+	kf->Find();
 	//auto windows = kf->FindWindowsForVariant(node_4, node_5);
-	kf->SetFlag(FLAG_ALIGN_SIGNATURE_WINDOWS, false);
-	VariantWindow *min_window = kf->FindVariantSignatures(node_4, node_5);
-	kf->FindKmersForVariant(node_4, node_5);
+	//kf->SetFlag(FLAG_ALIGN_SIGNATURE_WINDOWS, false);
+	//VariantWindow *min_window = kf->FindVariantSignatures(node_4, node_5);
+	//kf->FindKmersForVariant(node_4, node_5);
 
-	delete min_window;
+	//delete min_window;
 	delete kf;
 	delete graph;
 	

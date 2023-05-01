@@ -45,6 +45,7 @@ cdef extern from "cpp/Graph.hpp":
 
 cdef extern from "cpp/KmerFinder.hpp":
     enum: FILTER_NODE_ID
+    enum: FLAG_TO_STDOUT
     enum: FLAG_ALIGN_SIGNATURE_WINDOWS
     enum: FLAG_MINIMIZE_SIGNATURE_OVERLAP
     enum: FLAG_ONLY_SAVE_INITIAL_NODES

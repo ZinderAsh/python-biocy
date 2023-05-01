@@ -863,7 +863,6 @@ Graph *Graph::FromFile(char *filepath) {
 	}
 
 	uint8_t version_number = fgetc(f);
-	printf("File version: %d\n", version_number);
 
 	char encoding[5];
 	encoding[4] = '\0';

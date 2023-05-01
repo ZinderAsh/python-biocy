@@ -19,14 +19,18 @@ cdef class KmerFinder:
         self.reverse_kmers = reverse_kmers
         self._kmer_frequency_index = None
 
-    def find(self, bool include_spanning_nodes=False, int max_variant_nodes=255):
-        print("Finding kmers...")
+    def find(self, bool include_spanning_nodes=False, int max_variant_nodes=255, bool stdout=False):
+        #print("Finding kmers...")
         cdef cpp.KmerFinder *kf = new cpp.KmerFinder(self.graph.data, self.k, max_variant_nodes)
         kf.SetFlag(cpp.FLAG_ONLY_SAVE_INITIAL_NODES, not include_spanning_nodes)
+        kf.SetFlag(cpp.FLAG_TO_STDOUT, stdout)
         kf.Find()
         if self.reverse_kmers:
             kf.ReverseFoundKmers()
-        print("Copying to numpy arrays")
+        #print("Copying to numpy arrays")
+        if stdout:
+            del kf
+            return None
         kmers = np.empty((kf.found_count,), dtype=np.uint64)
         nodes = np.empty((kf.found_count,), dtype=np.uint32)
         cdef cnp.ndarray[unsigned long long, ndim=1, mode="c"] c_kmers = kmers
@@ -34,7 +38,7 @@ cdef class KmerFinder:
         memcpy(c_kmers.data, kf.found_kmers, sizeof(unsigned long long) * kf.found_count)
         memcpy(c_nodes.data, kf.found_nodes, sizeof(unsigned int) * kf.found_count)
         del kf
-        print("Done")
+        #print("Done")
         return kmers, nodes
 
     def find_variant_signatures(self, reference_node_ids, variant_node_ids,
