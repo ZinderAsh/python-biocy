@@ -11,30 +11,25 @@
 #include "FASTA.hpp"
 
 int main(int argc, char** argv) {
-	/*
+	
 	if (argc != 4) return 1;
-	Graph *graph = Graph::FromFastaVCF(argv[1], argv[2], 21);
+	Graph *graph = Graph::FromFastaVCF(argv[1], argv[2], -1);
+	printf("Node Count: %u\n", graph->nodes_len);
 	//graph->ToFile(argv[3]);
+	
+	return 0;
 
 	uint8_t k = 31;
 	KmerFinder *kf = new KmerFinder(graph, k, 200);
 	kf->Find();
 	printf("Found %lu kmers\n", kf->found_count);
-	kf->FindVariantSignatures();
 	delete kf;
 
 	delete graph;
-
-	graph = Graph::FromFile(argv[3]);
-
-	kf = new KmerFinder(graph, k, 200);
-	kf->Find();
-	printf("Found %lu kmers\n", kf->found_count);
-	delete kf;
-
-	delete graph;
-	*/
 	
+	return 0;
+	
+	/*
 	Graph *graph = new Graph("ACGT");
 
 	uint32_t node_0 = graph->AddNode("ACTGACTGACTG");
@@ -74,6 +69,7 @@ int main(int argc, char** argv) {
 	//delete min_window;
 	delete kf;
 	delete graph;
+	*/
 	
 	/*
 	printf("window kmers\n");

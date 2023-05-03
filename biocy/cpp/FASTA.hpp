@@ -22,6 +22,7 @@ public:
 	}
 
 	static FASTA *ReadFile(char *filepath);
+	void GoToStart();
 	bool GoToChromosome(int16_t chromosome);
 	char *ReadNext(uint32_t count);
 private:

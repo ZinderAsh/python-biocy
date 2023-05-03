@@ -1,4 +1,4 @@
-from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t, int16_t
 from libcpp.unordered_map cimport unordered_map
 
 from libcpp cimport bool
@@ -29,6 +29,8 @@ cdef extern from "cpp/Graph.hpp":
         Graph *FromGFAFile(char *)
         @staticmethod
         Graph *FromGFAFileEncoded(char *, char *)
+        @staticmethod
+        Graph *FromFastaVCFEncoded(char *, char *, int16_t, char *)
 
         void Compress()
 

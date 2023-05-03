@@ -8,6 +8,10 @@ FASTA *FASTA::ReadFile(char *filepath) {
 	return fasta;
 }
 
+void FASTA::GoToStart() {
+	fseek(source_file, 0, SEEK_SET);
+}
+
 bool FASTA::GoToChromosome(int16_t chromosome) {
 	fseek(source_file, 0, SEEK_SET);
 	int16_t current_chromosome = -1;

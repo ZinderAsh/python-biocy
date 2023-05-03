@@ -3,7 +3,7 @@
 from libc.stdlib cimport malloc, free
 from libc.string cimport strdup, strlen, memset, memcpy
 from libc.stdio cimport printf
-from libc.stdint cimport uint8_t, uint32_t, uint64_t
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t, int16_t
 from cpython cimport array
 import numpy as np
 cimport numpy as cnp
@@ -186,6 +186,19 @@ cdef class Graph:
         g = Graph()
         g.data = cpp_graph
         free(fpath)
+        return g
+
+    @staticmethod
+    def from_fasta_vcf(fasta_filepath, vcf_filepath, int chromosome, encoding="ACGT"):
+        cdef char flags = 0
+        cdef char *fasta_fpath = strdup(fasta_filepath.encode('ASCII'))
+        cdef char *vcf_fpath = strdup(vcf_filepath.encode('ASCII'))
+        cdef int16_t chromosome_int = chromosome
+        cdef cpp.Graph *cpp_graph = cpp.Graph.FromFastaVCFEncoded(fasta_fpath, vcf_fpath, chromosome_int, encoding.encode('ASCII'))
+        g = Graph()
+        g.data = cpp_graph
+        free(fasta_fpath)
+        free(vcf_fpath)
         return g
 
     @staticmethod

@@ -72,35 +72,13 @@ Graph *Graph::FromFastaVCF(char *fasta_filepath, char *vcf_filepath, int16_t chr
 Graph *Graph::FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, int16_t chromosome, const char *encoding) {
 	VCF *vcf = VCF::ReadFile(vcf_filepath, chromosome);
 	FASTA *fasta = FASTA::ReadFile(fasta_filepath);
-	fasta->GoToChromosome(chromosome);
+	if (chromosome != -1) {
+		fasta->GoToChromosome(chromosome);
+	} else {
+		fasta->GoToStart();
+	}
 
 	Graph *graph = new Graph(encoding);
-
-	/*
-	uint64_t i = 99025;
-	for (i = 0; i < 100000; i++) {
-		if (strlen(vcf->references[i]) != strlen(vcf->variants[i]) && strstr(vcf->variants[i], ",")) {
-			printf("%lu %d,%lu: %s / %s\n", i, vcf->chromosomes[i], vcf->positions[i], vcf->references[i], vcf->variants[i]);
-		}
-	}*/
-	/*
-	for (uint64_t i = 0; i < vcf->length; i++) {
-		uint8_t ref_len = strlen(vcf->references[i]);
-		for (uint64_t j = 0; j < vcf->length; j++) {
-			if (i == j) continue;
-			if (vcf->positions[i] > vcf->positions[j]) continue;
-			uint64_t position_diff = vcf->positions[j] - vcf->positions[i];
-			if (position_diff < ref_len) {
-				printf("1: %lu %d,%lu: %s / %s\n", i,
-						vcf->chromosomes[i], vcf->positions[i],
-						vcf->references[i], vcf->variants[i]);
-				printf("2: %lu %d,%lu: %s / %s\n", j,
-						vcf->chromosomes[j], vcf->positions[j],
-						vcf->references[j], vcf->variants[j]);
-			}
-		}
-	}
-	*/
 
 	uint64_t *sorted_variant_indices = (uint64_t *) malloc(sizeof(uint64_t) * vcf->length);
 	for (uint64_t i = 0; i < vcf->length; i++) {
@@ -223,7 +201,11 @@ Graph *Graph::FromFastaVCFEncoded(char *fasta_filepath, char *vcf_filepath, int1
 	}
 	
 	if (remaining > 0) {
-		fasta->GoToChromosome(chromosome);
+		if (chromosome != -1) {
+			fasta->GoToChromosome(chromosome);
+		} else {
+			fasta->GoToStart();
+		}
 		uint64_t to_read = reference_pos;
 		while (to_read > 128) {
 			fasta->ReadNext(128);
