@@ -1,6 +1,4 @@
-=====
-KIVS: Graph **K**-mer **I**ndexer and **V**ariant **S**ignature Finder
-=====
+# KIVS: Graph **K**-mer **I**ndexer and **V**ariant **S**ignature Finder
 
 Master's project about discovering and indexing k-mers from genome graphs.
 
