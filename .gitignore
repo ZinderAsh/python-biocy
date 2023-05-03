@@ -105,11 +105,15 @@ ENV/
 .vscode/
 .idea/
 
-biocy/*.so
-biocy/*.o
-biocy/*.html
-biocy/*.cpp
-biocy/example.py
-tests/test_biocy
+kivs/*.so
+kivs/*.o
+kivs/*.html
+kivs/*.cpp
+kivs/cpp/*.o
+kivs/example.py
+tests/test_kivs
 tests/data/*.bcg
 tests/data/*.npz
+
+Gemfile
+Gemfile.lock

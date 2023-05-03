@@ -1,12 +1,12 @@
 ---
 layout: default
-title: Biocy - KmerFinder
+title: KIVS - KmerFinder
 permalink: /docs/KmerFinder/
 ---
 
 # class KmerFinder
 
-`from biocy import KmerFinder`
+`from kivs import KmerFinder`
 
 Used to analyze and retrieve various information about k-mers in a Graph.
 

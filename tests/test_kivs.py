@@ -1,7 +1,7 @@
 from obgraph import Graph as OBGraph
 from graph_kmer_index.kmer_finder import DenseKmerFinder
 from graph_kmer_index import kmer_hash_to_sequence
-from biocy import Graph, KmerFinder, hash_kmer
+from kivs import Graph, KmerFinder, hash_kmer
 from os.path import exists
 import pytest
 

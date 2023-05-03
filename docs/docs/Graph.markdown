@@ -1,12 +1,12 @@
 ---
 layout: default
-title: Biocy - Graph
+title: KIVS - Graph
 permalink: /docs/Graph/
 ---
 
 # class Graph
 
-`from biocy import Graph`
+`from kivs import Graph`
 
 Representation of a directional genome graph of reference nodes and variant nodes.
 

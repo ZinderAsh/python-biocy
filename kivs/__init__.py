@@ -4,4 +4,4 @@ __author__ = """Sindre Ask Vestaberg"""
 __email__ = 'sindre.ask.vestaberg@gmail.com'
 __version__ = '0.1.0'
 
-from biocy_core import Graph, KmerFinder, hash_kmer
+from kivs_core import Graph, KmerFinder, hash_kmer

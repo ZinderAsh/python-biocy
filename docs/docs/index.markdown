@@ -1,8 +1,8 @@
 ---
 layout: default
-title: Biocy Docs
+title: KIVS Docs
 ---
 
-## [Graph](https://zinderash.github.io/python-biocy/docs/Graph)
+## [Graph](https://zinderash.github.io/python-kivs/docs/Graph)
 
-## [KmerFinder](https://zinderash.github.io/python-biocy/docs/KmerFinder)
+## [KmerFinder](https://zinderash.github.io/python-kivs/docs/KmerFinder)

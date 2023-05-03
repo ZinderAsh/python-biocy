@@ -19,18 +19,10 @@ requirements = ['cython', ]
 test_requirements = ['pytest>=3', ]
 
 extensions = [
-    Extension("biocy_core",
-              ["biocy/biocy_core.pyx",
-               "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/VCF.cpp", "biocy/cpp/FASTA.cpp", "biocy/cpp/hashing.cpp"],
+    Extension("kivs_core",
+              ["kivs/kivs_core.pyx",
+               "kivs/cpp/Graph.cpp", "kivs/cpp/KmerFinder.cpp", "kivs/cpp/GFA.cpp", "kivs/cpp/VCF.cpp", "kivs/cpp/FASTA.cpp", "kivs/cpp/hashing.cpp"],
               include_dirs=[numpy.get_include()]),
-    #Extension("Graph",
-    #          ["biocy/Graph.pyx",
-    #           "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/hashing.cpp"],
-    #          include_dirs=[numpy.get_include()]),
-    #Extension("KmerFinder",
-    #          ["biocy/KmerFinder.pyx",
-    #           "biocy/cpp/Graph.cpp", "biocy/cpp/KmerFinder.cpp", "biocy/cpp/GFA.cpp", "biocy/cpp/hashing.cpp"],
-    #          include_dirs=[numpy.get_include()]),
 ]
 
 extensions = cythonize(extensions, annotate=True)
@@ -41,7 +33,7 @@ setup(
     author_email='sindre.ask.vestaberg@gmail.com',
     python_requires='>=3.6',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
@@ -55,12 +47,12 @@ setup(
     license="MIT license",
     long_description=readme + '\n\n' + history,
     include_package_data=True,
-    keywords='biocy',
-    name='biocy',
-    packages=find_packages(include=['biocy', 'biocy.*']),
+    keywords=['kivs','genomegraph','genotyping','kmer','variant','variantsignature','polymer'],
+    name='kivs',
+    packages=find_packages(include=['kivs', 'kivs.*']),
     test_suite='tests',
     tests_require=test_requirements,
-    url='https://github.com/zinderash/biocy',
-    version='0.1.0',
+    url='https://github.com/zinderash/python-kivs',
+    version='1.0.0',
     zip_safe=False,
 )

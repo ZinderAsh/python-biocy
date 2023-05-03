@@ -1,5 +1,5 @@
 =====
-BioCy
+KIVS: Graph **K**-mer **I**ndexer and **V**ariant **S**ignature Finder
 =====
 
 Master's project about discovering and indexing k-mers from genome graphs.
@@ -32,7 +32,7 @@ This project aims to create a high-performance cython-based python module for cr
 * Run `pytest` to perform the tests ensuring that everything is working correctly.
 * To use in a separate Python program (example using obgraph):
 ```python
-from biocy import Graph, KmerFinder
+from kivs import Graph, KmerFinder
 from obgraph import Graph as OBGraph
 
 # Read graph from obgraph file
