@@ -38,21 +38,23 @@ obgraph = OBGraph.from_file("directory/obgraph.npz")
 graph = Graph.from_obgraph(obgraph)
 
 # Write graph to biocy graph file
-graph.to_file("directory/bcgraph.bcg")
+graph.to_file("directory/bcgraph.kivs")
 
 # Read graph from biocy graph file
-graph = Graph.from_file("directory/bcgraph.bcg")
+graph = Graph.from_file("directory/bcgraph.kivs")
 
-# Find all kmers and the nodes they include
+# Find all 5-mers that span a maximum of 5 variants
 k = 5
 kmer_finder = KmerFinder(graph, k)
-kmers, nodes = kmer_finder.find()
+kmers, nodes = kmer_finder.find(max_variant_nodes=5)
 
 # Find identifying windows for variants
 # reverse_kmers specify if the kmers should be mirrored before returning
 k = 5
-kmer_finder = KmerFinder(graph, k)
-ref, var = kmer_finder.find_identifying_windows_for_variants([1, 3, 5, 7, 9], [2, 4, 6, 8, 10], reverse_kmers=True)
+kmer_finder = KmerFinder(graph, k, reverse_kmers=True)
+ref, var = kmer_finder.find_variant_signatures(
+    [1, 3, 5, 7, 9], [2, 4, 6, 8, 10],
+    align_windows=True, minimize_overlaps=True)
 
 ```
 

@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <unordered_map>
 #include <vector>
+#include <math.h>
+#include <cmath>
 
 #define FILTER_NODE_ID 1
 
@@ -135,6 +137,7 @@ public:
 	uint16_t reference_kmers_len;
 	uint16_t variant_kmers_len;
 	uint32_t max_frequency;
+	double hypotenuse_frequency;
 	
 	VariantWindow(struct kmer_window *ref, struct kmer_window *var) {
 		reference_kmers_len = ref->length;
@@ -144,6 +147,7 @@ public:
 		memcpy(reference_kmers, ref->kmers, sizeof(uint64_t) * reference_kmers_len);
 		memcpy(variant_kmers, var->kmers, sizeof(uint64_t) * variant_kmers_len);
 		max_frequency = ref->max_frequency + var->max_frequency;
+		hypotenuse_frequency = sqrt(pow(ref->max_frequency, 2) + pow(var->max_frequency, 2));
 	}
 	~VariantWindow() {
 		free(reference_kmers);
