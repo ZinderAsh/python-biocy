@@ -11,16 +11,20 @@ This project aims to create a high-performance cython-based python module for cr
 ### Dependencies
 
 * Python
+* g++
 * Cython
-* PyTest (for running tests)
+* numpy
 * npstructures
 
 #### Optional Dependencies
 
-* obgraph
+* PyTest (for running tests)
+* obgraph (for tests or loading obgraphs)
+* graph\_kmer\_finder (for tests)
 
 ### Setup
 
+* To use with KAGE indexing, follow [KAGE's instructions for installing snakemake and conda](https://github.com/ivargr/kage-indexing). Then do the next steps inside the correct conda environment.
 * Clone the repository: `git clone https://github.com/ZinderAsh/masters-project-genotyping.git`
 * cd into the directory: `cd masters-project-genotyping`
 * Run `pip install .` inside the folder
@@ -56,6 +60,13 @@ ref, var = kmer_finder.find_variant_signatures(
     [1, 3, 5, 7, 9], [2, 4, 6, 8, 10],
     align_windows=True, minimize_overlaps=True)
 
+```
+
+### Tests
+
+* To run tests for both C++ and Python, run the following command:
+```bash
+make test
 ```
 
 Credits
