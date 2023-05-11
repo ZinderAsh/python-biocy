@@ -9,8 +9,8 @@ import numpy as np
 cimport numpy as cnp
 from npstructures import RaggedArray
 
-cimport biocy.biocpp as cpp
-from biocy.hashing cimport pack_max_kmer_with_offset, decode_kmer_by_map, fill_map_by_encoding, hash_min_kmer_by_encoding
+cimport kivs.kivs_cpp as cpp
+from kivs.hashing cimport pack_max_kmer_with_offset, decode_kmer_by_map, fill_map_by_encoding, hash_min_kmer_by_encoding
 
 cdef uint8_t get_node_base(cpp.node *n, uint32_t index):
     cdef uint32_t sequence_index = index // 32

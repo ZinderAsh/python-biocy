@@ -1,5 +1,5 @@
-#ifndef BIOCY_GRAPH_H
-#define BIOCY_GRAPH_H
+#ifndef KIVS_GRAPH_H
+#define KIVS_GRAPH_H
 
 #include "node.hpp"
 

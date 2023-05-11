@@ -1,5 +1,5 @@
-#ifndef BIOCY_FILE_READER_GFA
-#define BIOCY_FILE_READER_GFA
+#ifndef KIVS_FILE_READER_GFA
+#define KIVS_FILE_READER_GFA
 
 #include <cstdlib>
 #include <stdio.h>

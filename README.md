@@ -37,10 +37,10 @@ from obgraph import Graph as OBGraph
 obgraph = OBGraph.from_file("directory/obgraph.npz")
 graph = Graph.from_obgraph(obgraph)
 
-# Write graph to biocy graph file
+# Write graph to KIVS graph file
 graph.to_file("directory/bcgraph.kivs")
 
-# Read graph from biocy graph file
+# Read graph from KIVS graph file
 graph = Graph.from_file("directory/bcgraph.kivs")
 
 # Find all 5-mers that span a maximum of 5 variants

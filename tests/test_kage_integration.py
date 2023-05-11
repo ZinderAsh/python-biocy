@@ -2,10 +2,10 @@ import sys
 import obgraph
 import numpy as np
 from shared_memory_wrapper import from_file
-from biocy import KmerFinder, Graph
+from kivs import KmerFinder, Graph
 from npstructures import Counter
 from obgraph.variant_to_nodes import VariantToNodes
-from biocy.wrappers import get_variant_signatures
+from kivs.wrappers import get_variant_signatures
 from bionumpy.encodings.kmer_encodings import KmerEncoding
 import bionumpy as bnp
 

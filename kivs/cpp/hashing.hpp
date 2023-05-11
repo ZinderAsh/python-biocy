@@ -1,5 +1,5 @@
-#ifndef BIOCY_HASHING_H
-#define BIOCY_HASHING_H
+#ifndef KIVS_HASHING_H
+#define KIVS_HASHING_H
 
 #include <stdint.h>
 

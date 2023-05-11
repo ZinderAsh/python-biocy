@@ -1,5 +1,5 @@
-#ifndef BIOCY_NODE_H
-#define BIOCY_NODE_H
+#ifndef KIVS_NODE_H
+#define KIVS_NODE_H
 
 #include <stdint.h>
 

@@ -1,1 +1,1 @@
-"""Unit test package for biocy."""
+"""Unit test package for KIVS."""

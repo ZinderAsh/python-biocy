@@ -1,5 +1,5 @@
-#ifndef BIOCY_FILE_READER_VCF
-#define BIOCY_FILE_READER_VCF
+#ifndef KIVS_FILE_READER_VCF
+#define KIVS_FILE_READER_VCF
 
 #include <cstdlib>
 #include <stdio.h>

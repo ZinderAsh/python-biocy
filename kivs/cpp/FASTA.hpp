@@ -1,5 +1,5 @@
-#ifndef BIOCY_FILE_READER_FASTA
-#define BIOCY_FILE_READER_FASTA
+#ifndef KIVS_FILE_READER_FASTA
+#define KIVS_FILE_READER_FASTA
 
 #include <cstdlib>
 #include <stdio.h>
