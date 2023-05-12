@@ -6,6 +6,8 @@ Master's project about discovering and indexing k-mers from genome graphs.
 
 This project aims to create a high-performance cython-based python module for creating genome graphs and discovering/indexing the k-mers within the graph.
 
+Documentation can be found [here](https://zinderash.github.io/python-kivs/).
+
 ## Getting Started
 
 ### Dependencies
@@ -24,7 +26,7 @@ This project aims to create a high-performance cython-based python module for cr
 
 ### Setup
 
-* To use with KAGE indexing, follow [KAGE's instructions for installing snakemake and conda](https://github.com/ivargr/kage-indexing). Then do the next steps inside the correct conda environment.
+* To use with KAGE indexing, follow [KAGE's instructions for installing snakemake and conda](https://github.com/ivargr/kage-indexing). Then do the next steps inside the correct conda environment. 
 * Clone the repository: `git clone https://github.com/ZinderAsh/masters-project-genotyping.git`
 * cd into the directory: `cd masters-project-genotyping`
 * Run `pip install .` inside the folder
